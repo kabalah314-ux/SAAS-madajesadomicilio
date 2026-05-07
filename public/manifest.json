@@ -1,0 +1,16 @@
+{
+  "name": "MassFlow - Masajes a Domicilio",
+  "short_name": "MassFlow",
+  "description": "Reserva masajes a domicilio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0fdfa",
+  "theme_color": "#0d9488",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
