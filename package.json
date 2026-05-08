@@ -1,12 +1,12 @@
 {
-  "name": "react-vite-tailwind",
+  "name": "massflow",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
@@ -16,8 +16,9 @@
     "clsx": "2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.11.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "recharts": "^3.8.1",
     "tailwind-merge": "3.4.0"
   },

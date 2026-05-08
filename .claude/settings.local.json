@@ -11,7 +11,15 @@
       "Bash(git config *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(curl -s https://saas-madajesadomicilio.vercel.app)",
+      "Bash(git checkout *)",
+      "Bash(npm run *)",
+      "Bash(taskkill /PID 17432 /F)",
+      "Bash(cmd.exe /c \"taskkill /PID 17432 /F\")",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(cmd.exe /c \"taskkill /F /IM node.exe\")"
     ]
   }
 }
