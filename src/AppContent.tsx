@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from './AppContext';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
@@ -74,7 +74,21 @@ export default function AppContent() {
     currentUser?.role === 'masajista' ? 'calendario' :
     'inicio'
   );
+
+  // Sidebar abierto por defecto en desktop, cerrado en mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    // Detectar si es desktop (>= 1024px)
+    const checkDesktop = () => {
+      setSidebarOpen(window.innerWidth >= 1024);
+    };
+
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
 
   if (loading) {
     return (

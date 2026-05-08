@@ -77,7 +77,7 @@ export default function MisReservas() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Mis Reservas</h2>
         <p className="text-gray-600 mt-1">
