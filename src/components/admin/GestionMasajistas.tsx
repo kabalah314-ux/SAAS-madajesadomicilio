@@ -98,18 +98,18 @@ export default function GestionMasajistas() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Masajistas</h2>
-          <p className="text-gray-600 mt-1">{masajistas.length} masajistas en el sistema</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Masajistas</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{masajistas.length} masajistas en el sistema</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <select
             value={filtro}
             onChange={(e) => setFiltro(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
           >
             <option value="todos">Todas ({masajistas.length})</option>
             <option value="activas">Activas ({masajistas.filter(m => m.activo && m.documentacion_ok).length})</option>
@@ -122,16 +122,17 @@ export default function GestionMasajistas() {
               resetForm();
               setShowModal('create');
             }}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center justify-center gap-2 text-sm whitespace-nowrap"
           >
-            <Plus size={20} />
-            Nueva Masajista
+            <Plus size={18} className="sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">Nueva Masajista</span>
+            <span className="sm:hidden">Nueva</span>
           </button>
         </div>
       </div>
 
       {/* Grid de masajistas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {masajistasFiltradas.map(masajista => {
           const estado = getEstadoBadge(masajista);
           const docsCompletos = masajista.documentos.every(d => d.estado === 'verificado');
