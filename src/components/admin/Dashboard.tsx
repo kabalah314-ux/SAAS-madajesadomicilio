@@ -59,14 +59,14 @@ export default function Dashboard() {
     .slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <p className="text-gray-600 mt-1">Vista general del sistema MassFlow</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h2>
+        <p className="text-sm sm:text-base text-gray-600 mt-1">Vista general del sistema MassFlow</p>
       </div>
 
       {/* KPIs principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <Calendar size={24} className="text-purple-100" />

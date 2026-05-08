@@ -74,6 +74,7 @@ export default function AppContent() {
     currentUser?.role === 'masajista' ? 'calendario' :
     'inicio'
   );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -138,11 +139,18 @@ export default function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex">
-        <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
-        <main className="flex-1 p-6">
-          {renderView()}
+        <Sidebar
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full overflow-x-hidden">
+          <div className="max-w-7xl mx-auto">
+            {renderView()}
+          </div>
         </main>
       </div>
     </div>

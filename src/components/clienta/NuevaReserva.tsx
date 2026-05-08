@@ -128,33 +128,33 @@ export default function NuevaReserva() {
   const masajistaPreferida = clienta?.masajista_preferida;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Nueva Reserva</h2>
-        <p className="text-gray-600 mt-1">Completa los pasos para reservar tu sesión</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Nueva Reserva</h2>
+        <p className="text-sm sm:text-base text-gray-600 mt-1">Completa los pasos para reservar tu sesión</p>
       </div>
 
       {/* Indicador de progreso */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-max sm:min-w-0">
           {steps.map((s, idx) => {
             const Icon = s.icon;
             const isActive = step === s.num;
             const isCompleted = step > s.num;
-            
+
             return (
-              <div key={s.num} className="flex items-center flex-1">
+              <div key={s.num} className="flex items-center flex-1 min-w-0">
                 <div className="flex flex-col items-center flex-1">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition ${
-                    isCompleted 
-                      ? 'bg-green-500 text-white' 
-                      : isActive 
-                        ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white ring-4 ring-teal-100' 
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold transition ${
+                    isCompleted
+                      ? 'bg-green-500 text-white'
+                      : isActive
+                        ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white ring-4 ring-teal-100'
                         : 'bg-gray-200 text-gray-600'
                   }`}>
-                    {isCompleted ? <Check size={20} /> : <Icon size={20} />}
+                    {isCompleted ? <Check size={16} className="sm:w-5 sm:h-5" /> : <Icon size={16} className="sm:w-5 sm:h-5" />}
                   </div>
-                  <div className={`text-xs mt-2 font-medium hidden sm:block ${
+                  <div className={`text-[10px] sm:text-xs mt-2 font-medium text-center px-1 ${
                     isActive ? 'text-teal-600' : 'text-gray-600'
                   }`}>
                     {s.label}

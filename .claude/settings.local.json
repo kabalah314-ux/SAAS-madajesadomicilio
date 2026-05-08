@@ -21,7 +21,10 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(cmd.exe /c \"taskkill /F /IM node.exe\")",
       "Bash(pkill -f \"next dev\" 2>/dev/null; sleep 2; cd \"c:/Users/oscar/OneDrive/Documentos/VS Code/SAAS-madajesadomicilio-main\" && npm run dev > /tmp/nextjs.log 2>&1 & sleep 5 && cat /tmp/nextjs.log | tail -15)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npm uninstall *)",
+      "Bash(taskkill /PID 11684 /F)",
+      "Bash(taskkill //PID 11684 //F)"
     ]
   }
 }

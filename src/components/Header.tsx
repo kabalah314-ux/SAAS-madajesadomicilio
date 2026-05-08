@@ -1,8 +1,12 @@
-import { LogOut, Bell, Moon, Sun } from 'lucide-react';
+import { LogOut, Bell, Moon, Sun, Menu } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { useState } from 'react';
 
-export default function Header() {
+interface HeaderProps {
+  onToggleSidebar: () => void;
+}
+
+export default function Header({ onToggleSidebar }: HeaderProps) {
   const { currentUser, logout, notificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas, darkMode, toggleDarkMode } = useApp();
   const [showNotif, setShowNotif] = useState(false);
 
@@ -31,13 +35,22 @@ export default function Header() {
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
+            {/* Botón hamburguesa para mobile y toggle desktop */}
+            <button
+              onClick={onToggleSidebar}
+              className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-600 hover:text-gray-900"
+              title="Toggle menú"
+            >
+              <Menu size={24} />
+            </button>
+
             <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center">
               <span className="text-xl">💆‍♀️</span>
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h1 className="text-lg font-bold text-gray-900">MassFlow</h1>
               <p className="text-xs text-gray-500">Sistema de Gestión</p>
             </div>
@@ -134,19 +147,19 @@ export default function Header() {
             </div>
 
             {/* Usuario */}
-            <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-              <div className="text-right">
+            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-gray-200">
+              <div className="text-right hidden md:block">
                 <p className="text-sm font-medium text-gray-900">{currentUser.nombre}</p>
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getRoleBadge(currentUser.role)}`}>
                   {getRoleName(currentUser.role)}
                 </span>
               </div>
-              
+
               {currentUser.foto && (
-                <img 
-                  src={currentUser.foto} 
+                <img
+                  src={currentUser.foto}
                   alt={currentUser.nombre}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover"
                 />
               )}
 
