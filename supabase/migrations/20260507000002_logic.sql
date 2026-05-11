@@ -118,3 +118,26 @@ select
   (select coalesce(sum(comision_monto),0) from public.reservas where estado='completada' and date_trunc('month',fecha)=date_trunc('month',now())) as comisiones_mes,
   (select count(*) from public.masajistas where is_verified = true and is_suspended = false) as masajistas_activos,
   (select count(*) from public.clientes where is_blocked = false) as clientes_activos;
+
+-- =========================================================
+-- RPC FUNCTION: get_masajista_pending_earnings
+-- =========================================================
+create or replace function public.get_masajista_pending_earnings(masajista_id uuid)
+returns table(total_sesiones bigint, monto_total numeric)
+language sql
+stable
+as $$
+  select
+    count(*)::bigint as total_sesiones,
+    coalesce(sum(pago_masajista), 0) as monto_total
+  from public.reservas
+  where reservas.masajista_id = $1
+    and reservas.estado = 'completada'
+    and reservas.pago_estado = 'pagado'
+    and reservas.id not in (
+      select unnest(string_to_array(coalesce(referencia, ''), ','))::uuid
+      from public.transferencias
+      where transferencias.masajista_id = $1
+        and transferencias.estado in ('enviada', 'confirmada')
+    );
+$$;

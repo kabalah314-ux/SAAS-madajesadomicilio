@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:whatsapp": "node -r tsx scripts/test-whatsapp.ts",
+    "test:whatsapp:exhaustive": "node -r tsx scripts/test-whatsapp-exhaustivo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
     "@google/generative-ai": "^0.24.1",
+    "@stripe/react-stripe-js": "^6.3.0",
+    "@stripe/stripe-js": "^9.4.0",
     "@supabase/supabase-js": "^2.105.3",
     "@tanstack/react-query": "^5.100.9",
     "@types/canvas-confetti": "^1.9.0",
@@ -33,6 +37,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vite-plugin-singlefile": "2.3.0"

@@ -1,6 +1,6 @@
 // Tipos para proveedores de IA pluggables
 
-export type ProveedorIA = 'anthropic' | 'openai' | 'gemini' | 'local'
+export type ProveedorIA = 'anthropic' | 'openai' | 'gemini' | 'perplexity' | 'local'
 
 export interface ClasificacionResult {
   intencion: string

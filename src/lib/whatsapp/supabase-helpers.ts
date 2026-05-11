@@ -1,18 +1,31 @@
 // Helper functions para manejar datos de WhatsApp en Supabase
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { ConversacionWhatsApp, MensajeWhatsApp, EstadoFlujo } from '@/types/whatsapp';
 
-// Cliente Supabase con service_role key (bypasea RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+// Lazy initialization para cliente Supabase con service_role key (bypasea RLS)
+let supabaseAdminInstance: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (supabaseAdminInstance) {
+    return supabaseAdminInstance;
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error('Faltan variables NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY');
+  }
+
+  supabaseAdminInstance = createClient(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  }
-);
+  });
+
+  return supabaseAdminInstance;
+}
 
 /**
  * Obtiene o crea una conversación de WhatsApp
@@ -20,8 +33,10 @@ const supabaseAdmin = createClient(
 export async function getOrCreateConversacion(
   numeroWhatsapp: string
 ): Promise<ConversacionWhatsApp> {
+  const supabase = getSupabaseAdmin();
+
   // Buscar conversación existente
-  const { data: existente, error: errorBuscar } = await supabaseAdmin
+  const { data: existente, error: errorBuscar } = await supabase
     .from('conversaciones_whatsapp')
     .select('*')
     .eq('numero_whatsapp', numeroWhatsapp)
@@ -32,7 +47,7 @@ export async function getOrCreateConversacion(
   }
 
   // Crear nueva conversación
-  const { data: nueva, error: errorCrear } = await supabaseAdmin
+  const { data: nueva, error: errorCrear } = await supabase
     .from('conversaciones_whatsapp')
     .insert({
       numero_whatsapp: numeroWhatsapp,
@@ -59,7 +74,9 @@ export async function actualizarConversacion(
   conversacionId: string,
   updates: Partial<ConversacionWhatsApp>
 ): Promise<ConversacionWhatsApp> {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
     .from('conversaciones_whatsapp')
     .update(updates)
     .eq('id', conversacionId)
@@ -77,7 +94,9 @@ export async function actualizarConversacion(
  * Resetea el estado de una conversación al INICIO
  */
 export async function resetearConversacion(conversacionId: string): Promise<void> {
-  await supabaseAdmin
+  const supabase = getSupabaseAdmin();
+
+  await supabase
     .from('conversaciones_whatsapp')
     .update({
       estado_flujo: 'INICIO',
@@ -99,7 +118,9 @@ export async function guardarMensaje(
   confianza?: number,
   error?: string
 ): Promise<void> {
-  await supabaseAdmin.from('mensajes_whatsapp').insert({
+  const supabase = getSupabaseAdmin();
+
+  await supabase.from('mensajes_whatsapp').insert({
     conversacion_id: conversacionId,
     tipo,
     contenido,
@@ -113,7 +134,9 @@ export async function guardarMensaje(
  * Obtiene configuración de WhatsApp por clave
  */
 export async function getConfiguracion(clave: string): Promise<any> {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
     .from('configuracion_whatsapp')
     .select('valor')
     .eq('clave', clave)
@@ -131,7 +154,9 @@ export async function getConfiguracion(clave: string): Promise<any> {
  * Obtiene todos los servicios disponibles
  */
 export async function getServicios() {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
     .from('servicios')
     .select('*')
     .eq('is_active', true)
@@ -151,9 +176,11 @@ export async function buscarMasajistaDisponible(
   fecha: string,
   hora: string
 ): Promise<any | null> {
+  const supabase = getSupabaseAdmin();
+
   // Simplificado: busca masajistas activas y verificadas
   // En producción debería consultar tabla de disponibilidad
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('masajistas')
     .select('id, profiles!inner(full_name, avatar_url)')
     .eq('is_verified', true)
@@ -183,10 +210,12 @@ export async function crearReserva(datos: {
   precio_total: number;
   comision_pct: number;
 }): Promise<any> {
+  const supabase = getSupabaseAdmin();
+
   const comision_monto = (datos.precio_total * datos.comision_pct) / 100;
   const pago_masajista = datos.precio_total - comision_monto;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('reservas')
     .insert({
       cliente_id: datos.cliente_id,
@@ -219,8 +248,10 @@ export async function crearReserva(datos: {
  * Obtiene reservas activas de un cliente por su número de WhatsApp
  */
 export async function getReservasActivas(numeroWhatsapp: string): Promise<any[]> {
+  const supabase = getSupabaseAdmin();
+
   // Primero obtener la conversación para sacar el cliente_id
-  const { data: conversacion } = await supabaseAdmin
+  const { data: conversacion } = await supabase
     .from('conversaciones_whatsapp')
     .select('cliente_id')
     .eq('numero_whatsapp', numeroWhatsapp)
@@ -230,7 +261,7 @@ export async function getReservasActivas(numeroWhatsapp: string): Promise<any[]>
     return [];
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('reservas')
     .select('*, servicio:servicios(nombre), masajista:masajistas(id, profiles!inner(full_name))')
     .eq('cliente_id', conversacion.cliente_id)
@@ -249,7 +280,9 @@ export async function getReservasActivas(numeroWhatsapp: string): Promise<any[]>
  * Cancela una reserva
  */
 export async function cancelarReserva(reservaId: string, motivo: string): Promise<void> {
-  const { error } = await supabaseAdmin
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase
     .from('reservas')
     .update({
       estado: 'cancelada',
@@ -266,8 +299,10 @@ export async function cancelarReserva(reservaId: string, motivo: string): Promis
  * Obtiene o crea un cliente por número de WhatsApp
  */
 export async function getOrCreateCliente(numeroWhatsapp: string, nombre?: string): Promise<string> {
+  const supabase = getSupabaseAdmin();
+
   // Buscar conversación existente con cliente_id
-  const { data: conversacion } = await supabaseAdmin
+  const { data: conversacion } = await supabase
     .from('conversaciones_whatsapp')
     .select('cliente_id')
     .eq('numero_whatsapp', numeroWhatsapp)
@@ -281,7 +316,7 @@ export async function getOrCreateCliente(numeroWhatsapp: string, nombre?: string
   // Primero crear en auth.users (simplificado para WhatsApp)
   const email = `whatsapp_${numeroWhatsapp}@massflow.temp`;
 
-  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
     email_confirm: true,
     user_metadata: {
@@ -300,7 +335,7 @@ export async function getOrCreateCliente(numeroWhatsapp: string, nombre?: string
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   // Actualizar la conversación con el cliente_id
-  await supabaseAdmin
+  await supabase
     .from('conversaciones_whatsapp')
     .update({ cliente_id: authUser.user.id })
     .eq('numero_whatsapp', numeroWhatsapp);

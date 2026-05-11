@@ -18,6 +18,7 @@ import Disponibilidad from './components/masajista/Disponibilidad';
 import MisDatos from './components/clienta/MisDatos';
 import NuevaReserva from './components/clienta/NuevaReserva';
 import MisReservas from './components/clienta/MisReservas';
+import ChatAsistente from './components/clienta/ChatAsistente';
 
 // Admin
 import Dashboard from './components/admin/Dashboard';
@@ -30,6 +31,11 @@ import Finanzas from './components/admin/Finanzas';
 import GestionTransferencias from './components/admin/GestionTransferencias';
 
 function ClienteInicioStub() {
+  const openChat = () => {
+    const event = new CustomEvent('openChatAsistente');
+    window.dispatchEvent(event);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl shadow-lg p-8 text-white mb-6">
@@ -37,6 +43,31 @@ function ClienteInicioStub() {
         <p className="text-teal-100">
           Reserva tu próxima sesión de masaje a domicilio en minutos
         </p>
+      </div>
+
+      {/* Destacar el chat */}
+      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl shadow-lg p-6 text-white mb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+        <div className="relative z-10">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/30 flex-shrink-0">
+              <span className="text-3xl">💆</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold mb-2">¿Necesitas ayuda con tu reserva?</h3>
+              <p className="text-white/90 text-sm mb-4">
+                Habla con <strong>Lía</strong>, nuestra asistente virtual. Te ayudará a reservar tu masaje en minutos de forma natural y sencilla.
+              </p>
+              <button
+                onClick={openChat}
+                className="bg-white text-indigo-600 px-6 py-2.5 rounded-lg font-semibold hover:bg-indigo-50 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+              >
+                💬 Hablar con Lía
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -167,6 +198,9 @@ export default function AppContent() {
           </div>
         </main>
       </div>
+
+      {/* Chat Asistente - Solo para clientes */}
+      {currentUser.role === 'clienta' && <ChatAsistente />}
     </div>
   );
 }

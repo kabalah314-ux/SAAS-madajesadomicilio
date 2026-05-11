@@ -11,3 +11,14 @@ dist/
 .next/
 out/
 next-env.d.ts
+
+# Debug & logs
+debug_extraction.log
+server.log
+*.log
+
+# Test temporales
+test_extraction_debug.js
+
+# Claude settings local
+.claude/settings.local.json

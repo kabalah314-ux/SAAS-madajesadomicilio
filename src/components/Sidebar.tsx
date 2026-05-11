@@ -12,7 +12,8 @@ import {
   History,
   User,
   Home,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { useApp } from '../AppContext';
 
@@ -66,7 +67,8 @@ export default function Sidebar({ currentView, setCurrentView, isOpen, onClose }
         { id: 'inicio', label: 'Inicio', icon: Home },
         { id: 'nueva-reserva', label: 'Nueva Reserva', icon: Calendar },
         { id: 'mis-reservas', label: 'Mis Reservas', icon: ClipboardList },
-        { id: 'mis-datos', label: 'Mis Datos', icon: User }
+        { id: 'mis-datos', label: 'Mis Datos', icon: User },
+        { id: 'chat-asistente', label: 'Hablar con Lía', icon: MessageCircle, badge: '💬' }
       ];
     }
 
@@ -76,6 +78,17 @@ export default function Sidebar({ currentView, setCurrentView, isOpen, onClose }
   const menuItems = getMenuItems();
 
   const handleItemClick = (viewId: string) => {
+    // Si es el botón de chat, disparar evento para abrir chat
+    if (viewId === 'chat-asistente') {
+      const event = new CustomEvent('openChatAsistente');
+      window.dispatchEvent(event);
+      // En mobile, cerrar sidebar después de abrir chat
+      if (window.innerWidth < 1024) {
+        onClose();
+      }
+      return;
+    }
+
     setCurrentView(viewId);
     // En mobile, cerrar sidebar después de seleccionar
     if (window.innerWidth < 1024) {

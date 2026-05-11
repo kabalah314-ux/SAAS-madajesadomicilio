@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import type { WhatsAppWebhookPayload } from '@/types/whatsapp';
 import { getOrCreateConversacion, guardarMensaje } from '@/lib/whatsapp/supabase-helpers';
-import { clasificarIntencion, clasificarConHeuristica } from '@/lib/whatsapp/clasificador';
 import { procesarFlujo } from '@/lib/whatsapp/flujos';
+import { crearProveedorIA } from '@/lib/whatsapp/providers/factory';
+import type { ConfigProveedorIA } from '@/lib/whatsapp/providers/tipos';
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'massflow_verify_token_2026';
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+// Accept test token for local testing
+const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || 'test_token_secret_key';
 
 /**
  * GET - Handshake de verificación con Meta
@@ -111,18 +113,26 @@ async function procesarMensajeAsync(payload: WhatsAppWebhookPayload): Promise<vo
     // 2. Guardar mensaje entrante
     await guardarMensaje(conversacion.id, 'entrante', textoMensaje);
 
-    // 3. Clasificar intención con Claude Haiku
+    // 3. Clasificar intención con Perplexity AI
     let intencion, confianza;
     try {
-      const clasificacion = await clasificarIntencion(textoMensaje, conversacion);
-      intencion = clasificacion.intencion;
-      confianza = clasificacion.confianza;
-      console.log(`🧠 Intención detectada: ${intencion} (confianza: ${confianza})`);
+      const config: ConfigProveedorIA = {
+        proveedor: 'perplexity',
+        apiKey: process.env.PERPLEXITY_API_KEY || '',
+      };
+
+      const provider = crearProveedorIA(config);
+      const contexto = construirContextoClasificacion(conversacion);
+      const resultado = await provider.clasificar(textoMensaje, contexto);
+
+      intencion = resultado.intencion;
+      confianza = resultado.confianza;
+      console.log(`🧠 Intención detectada: ${intencion} (confianza: ${confianza}) [${resultado.proveedor}]`);
     } catch (error) {
-      console.error('Error clasificando con Claude, usando heurística:', error);
-      const clasificacion = clasificarConHeuristica(textoMensaje, conversacion);
-      intencion = clasificacion.intencion;
-      confianza = clasificacion.confianza;
+      console.error('Error clasificando con Perplexity, usando heurística:', error);
+      // Fallback heurístico simple
+      intencion = clasificarConHeuristicaSimple(textoMensaje, conversacion);
+      confianza = 0.5;
     }
 
     // 4. Actualizar mensaje con intención detectada
@@ -136,4 +146,44 @@ async function procesarMensajeAsync(payload: WhatsAppWebhookPayload): Promise<vo
     console.error('❌ Error procesando mensaje:', error.message);
     throw error;
   }
+}
+
+/**
+ * Construye el contexto para el clasificador de IA
+ */
+function construirContextoClasificacion(conversacion: any): string {
+  return `Eres el clasificador de intenciones de MassFlow, servicio de masajes a domicilio en Madrid.
+
+CONTEXTO ACTUAL:
+- Estado del flujo: ${conversacion.estado_flujo}
+- Paso actual: ${conversacion.paso_actual}
+- Datos guardados: ${JSON.stringify(conversacion.datos_temporales)}
+
+Clasifica la intención en UNA de estas categorías EXACTAS:
+RESERVAR_CITA, CANCELAR_CITA, CONSULTAR_DISPONIBILIDAD, CONSULTAR_PRECIOS, CONSULTAR_SERVICIOS, CONSULTAR_ZONA, ESTADO_RESERVA, SALUDO, NO_ENTENDIDO
+
+REGLAS:
+1. Si el cliente está en medio de un flujo y responde datos válidos, continúa ese flujo
+2. "Sí/SI" en confirmaciones es parte del flujo actual
+3. Números (1,2,3) en respuesta a opciones son parte del flujo
+4. Solo usa NO_ENTENDIDO si es realmente ambiguo`;
+}
+
+/**
+ * Clasificación heurística simple (fallback)
+ */
+function clasificarConHeuristicaSimple(mensaje: string, conversacion: any): string {
+  const mensajeLower = mensaje.toLowerCase().trim();
+
+  if (conversacion.estado_flujo.startsWith('RESERVAR_PASO')) return 'RESERVAR_CITA';
+  if (conversacion.estado_flujo.startsWith('CANCELAR_PASO')) return 'CANCELAR_CITA';
+
+  if (mensajeLower.match(/^(hola|buenos|buenas|hey)/i)) return 'SALUDO';
+  if (mensajeLower.includes('reserv') || mensajeLower.includes('cita')) return 'RESERVAR_CITA';
+  if (mensajeLower.includes('cancelar')) return 'CANCELAR_CITA';
+  if (mensajeLower.includes('precio') || mensajeLower.includes('cuanto')) return 'CONSULTAR_PRECIOS';
+  if (mensajeLower.includes('servicio')) return 'CONSULTAR_SERVICIOS';
+  if (mensajeLower.includes('disponib')) return 'CONSULTAR_DISPONIBILIDAD';
+
+  return 'NO_ENTENDIDO';
 }

@@ -4,6 +4,7 @@ import type { ProveedorIA, ProveedorIAInterface, ConfigProveedorIA } from './tip
 import { AnthropicProvider } from './anthropic-provider'
 import { OpenAIProvider } from './openai-provider'
 import { GeminiProvider } from './gemini-provider'
+import { PerplexityProvider } from './perplexity-provider'
 
 /**
  * Crea instancia del proveedor de IA seleccionado
@@ -19,6 +20,9 @@ export function crearProveedorIA(config: ConfigProveedorIA): ProveedorIAInterfac
 
     case 'gemini':
       return new GeminiProvider(config.apiKey)
+
+    case 'perplexity':
+      return new PerplexityProvider(config.apiKey)
 
     default:
       throw new Error(`Proveedor desconocido: ${config.proveedor}`)
@@ -72,5 +76,11 @@ export const costosProveedores = {
     precioInput: 0.075, // $ por 1M tokens
     precioOutput: 0.3,
     descripcion: 'Súper barato, calidad aceptable',
+  },
+  perplexity: {
+    modelo: 'sonar',
+    precioInput: 0.20, // $ por 1M tokens (estimado)
+    precioOutput: 0.20,
+    descripcion: 'Ligero y económico, con búsqueda web',
   },
 }
