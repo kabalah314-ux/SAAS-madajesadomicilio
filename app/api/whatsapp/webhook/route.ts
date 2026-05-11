@@ -1,7 +1,7 @@
 // Webhook para recibir mensajes de WhatsApp Cloud API
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import type { WhatsAppWebhookPayload } from '@/types/whatsapp';
+import type { WhatsAppWebhookPayload, Intencion } from '@/types/whatsapp';
 import { getOrCreateConversacion, guardarMensaje } from '@/lib/whatsapp/supabase-helpers';
 import { procesarFlujo } from '@/lib/whatsapp/flujos';
 import { crearProveedorIA } from '@/lib/whatsapp/providers/factory';
@@ -114,7 +114,8 @@ async function procesarMensajeAsync(payload: WhatsAppWebhookPayload): Promise<vo
     await guardarMensaje(conversacion.id, 'entrante', textoMensaje);
 
     // 3. Clasificar intención con Perplexity AI
-    let intencion, confianza;
+    let intencion: Intencion;
+    let confianza: number;
     try {
       const config: ConfigProveedorIA = {
         proveedor: 'perplexity',
@@ -125,7 +126,7 @@ async function procesarMensajeAsync(payload: WhatsAppWebhookPayload): Promise<vo
       const contexto = construirContextoClasificacion(conversacion);
       const resultado = await provider.clasificar(textoMensaje, contexto);
 
-      intencion = resultado.intencion;
+      intencion = resultado.intencion as Intencion;
       confianza = resultado.confianza;
       console.log(`🧠 Intención detectada: ${intencion} (confianza: ${confianza}) [${resultado.proveedor}]`);
     } catch (error) {
@@ -172,7 +173,7 @@ REGLAS:
 /**
  * Clasificación heurística simple (fallback)
  */
-function clasificarConHeuristicaSimple(mensaje: string, conversacion: any): string {
+function clasificarConHeuristicaSimple(mensaje: string, conversacion: any): Intencion {
   const mensajeLower = mensaje.toLowerCase().trim();
 
   if (conversacion.estado_flujo.startsWith('RESERVAR_PASO')) return 'RESERVAR_CITA';

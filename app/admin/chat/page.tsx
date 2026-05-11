@@ -52,10 +52,8 @@ export default function AdminChatPage() {
   const [leads, setLeads] = useState<LeadItem[]>([])
   const [bookings, setBookings] = useState<BookingItem[]>([])
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
-  const [loading, setLoading] = useState(false)
 
   // Editing states
-  const [editingService, setEditingService] = useState<number | null>(null)
   const [newService, setNewService] = useState({ name: '', duration: 60, price: 0, description: '' })
   const [newZone, setNewZone] = useState({ name: '', surcharge: 0 })
   const [newFaq, setNewFaq] = useState({ question: '', answer: '' })

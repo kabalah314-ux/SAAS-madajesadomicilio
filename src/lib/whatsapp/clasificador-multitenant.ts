@@ -1,7 +1,8 @@
 // Clasificador multi-tenant que soporta múltiples proveedores de IA
 
 import { createClient } from '@supabase/supabase-js'
-import { obtenerProveedorEmpresa, clasificarConHeuristica } from './clasificador'
+import { obtenerProveedorEmpresa } from './providers/factory'
+import { clasificarConHeuristica } from './clasificador'
 import type { ConversacionWhatsApp, Intencion } from '@/types/whatsapp'
 
 const supabaseAdmin = createClient(

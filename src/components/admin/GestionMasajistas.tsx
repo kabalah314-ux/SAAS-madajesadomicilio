@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Eye, UserX, UserCheck, Trash2, X, Check, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Eye, UserX, UserCheck, X, Check, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { Masajista, TipoServicio, Documento } from '../../types';
 
