@@ -8,12 +8,12 @@ function getSupabaseClient(): SupabaseClient {
     return supabaseInstance;
   }
 
-  // Next.js uses process.env for environment variables
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Check both VITE_ and NEXT_PUBLIC_ prefixes for compatibility
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!url || !anon) {
-    throw new Error('Faltan variables NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    throw new Error('Faltan variables SUPABASE_URL / SUPABASE_ANON_KEY (con prefijo NEXT_PUBLIC_ o VITE_)');
   }
 
   supabaseInstance = createClient(url, anon, {
