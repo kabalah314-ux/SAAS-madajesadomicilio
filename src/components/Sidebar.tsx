@@ -109,11 +109,11 @@ export default function Sidebar({ currentView, setCurrentView, isOpen, onClose }
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:sticky top-16 left-0 z-50
+          fixed top-16 left-0 z-50 lg:sticky
           w-64 bg-white border-r border-gray-200
           min-h-[calc(100vh-4rem)] overflow-y-auto
           transform transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
         `}
       >
         {/* Header del sidebar (solo mobile) */}
