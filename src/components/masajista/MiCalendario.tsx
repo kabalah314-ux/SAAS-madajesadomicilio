@@ -5,7 +5,7 @@ import { Reserva, Servicio } from '../../types';
 import EmptyState from '../EmptyState';
 
 export default function MiCalendario() {
-  const { currentUser, reservas, servicios, clientas, marcarReservaCompletada } = useApp();
+  const { currentUser, reservas, servicios, clientas, marcarReservaCompletada, navigate } = useApp();
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = esta semana
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
 
@@ -89,7 +89,7 @@ export default function MiCalendario() {
         description="Cuando aceptes solicitudes o se te asignen sesiones, aparecerán aquí en tu calendario semanal."
         action={{
           label: 'Ver solicitudes pendientes',
-          onClick: () => {} // La navegación se maneja desde el padre
+          onClick: () => navigate('solicitudes')
         }}
       />
     );
@@ -343,12 +343,6 @@ export default function MiCalendario() {
                       >
                         <CheckCircle size={20} />
                         Marcar Completada
-                      </button>
-                      <button
-                        className="px-4 py-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition font-medium flex items-center gap-2"
-                      >
-                        <AlertTriangle size={20} />
-                        Reportar
                       </button>
                     </>
                   )}

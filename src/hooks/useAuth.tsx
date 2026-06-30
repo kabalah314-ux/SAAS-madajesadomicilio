@@ -18,7 +18,7 @@ type AuthCtx = {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, meta: { full_name: string; role: 'cliente' | 'masajista' | 'admin'; phone?: string }) => Promise<void>;
+  signUp: (email: string, password: string, meta: { full_name: string; role: 'cliente' | 'masajista'; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 };
 

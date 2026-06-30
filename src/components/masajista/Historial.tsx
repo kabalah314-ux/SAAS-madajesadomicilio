@@ -6,7 +6,8 @@ import EmptyState from '../EmptyState';
 type FiltroPeriodo = 'mes_actual' | 'mes_anterior' | '3_meses' | 'personalizado';
 
 export default function Historial() {
-  const { currentUser, reservas, servicios, clientas } = useApp();
+  const { currentUser, reservas, servicios, clientas, configuracion } = useApp();
+  const pagoPct = 100 - configuracion.comision_plataforma_pct;
   const [filtro, setFiltro] = useState<FiltroPeriodo>('mes_actual');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
@@ -240,7 +241,7 @@ export default function Historial() {
                   <div className="font-medium text-gray-900">{reserva.precio_total}€</div>
                 </div>
                 <div>
-                  <div className="text-gray-500">Mi pago (60%)</div>
+                  <div className="text-gray-500">Mi pago ({pagoPct}%)</div>
                   <div className="font-semibold text-teal-600">{reserva.pago_masajista}€</div>
                 </div>
               </div>

@@ -9,7 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'cliente' | 'masajista' | 'admin'>('cliente');
+  const [role, setRole] = useState<'cliente' | 'masajista'>('cliente');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -156,7 +156,7 @@ export default function Login() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de cuenta</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setRole('cliente')}
@@ -174,15 +174,6 @@ export default function Login() {
                     }`}
                   >
                     💆‍♀️ Masajista
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('admin')}
-                    className={`px-3 py-2 rounded-lg border-2 text-xs font-medium transition ${
-                      role === 'admin' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    ⚙️ Admin
                   </button>
                 </div>
               </div>

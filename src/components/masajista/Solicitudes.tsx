@@ -74,7 +74,7 @@ export default function Solicitudes() {
           const servicio = servicios.find(s => s.id === reserva.servicio_id);
           const clienta = clientas.find(c => c.id === reserva.clienta_id);
           const tiempo = getTiempoRestante(reserva.creada_en);
-          const pagoMasajista = Math.round(reserva.precio_total * 0.6);
+          const pagoMasajista = Math.round(reserva.pago_masajista);
 
           return (
             <div key={reserva.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
@@ -113,7 +113,7 @@ export default function Solicitudes() {
                       
                       <div className="flex items-center gap-2 text-gray-700">
                         <MapPin size={16} className="text-gray-400" />
-                        <span>{reserva.direccion.barrio}</span>
+                        <span>{reserva.direccion.ciudad || reserva.direccion.barrio || 'Zona no indicada'}</span>
                       </div>
                       
                       <div className="flex items-center gap-2 text-gray-700 font-medium">

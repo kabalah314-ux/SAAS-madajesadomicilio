@@ -1,19 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, User, Lock } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { TipoServicio } from '../../types';
 
 export default function MisDatos() {
-  const { currentUser, updateClienta, servicios, masajistas } = useApp();
+  const { currentUser, updateClienta, changePassword, servicios, masajistas } = useApp();
   const [saving, setSaving] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
+  const [savedOk, setSavedOk] = useState(false);
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [passMsg, setPassMsg] = useState('');
 
   if (!currentUser || currentUser.role !== 'clienta') return null;
 
   const clienta = currentUser as any;
-  
+
   const [nombre, setNombre] = useState(clienta.nombre || '');
   const [apellidos, setApellidos] = useState(clienta.apellidos || '');
   const [telefono, setTelefono] = useState(clienta.telefono || '');
@@ -31,30 +33,52 @@ export default function MisDatos() {
   const [notasEspeciales, setNotasEspeciales] = useState(clienta.notas_especiales || '');
   const [intensidad, setIntensidad] = useState(clienta.intensidad_preferida || 'media');
 
-  const handleSave = () => {
+  // Re-sincroniza el formulario cuando llegan los datos reales de la clienta.
+  useEffect(() => {
+    setNombre(clienta.nombre || '');
+    setApellidos(clienta.apellidos || '');
+    setTelefono(clienta.telefono || '');
+    if (clienta.direccion_habitual) setDireccion(clienta.direccion_habitual);
+    setServicioFav(clienta.servicio_favorito || '');
+    setMasajistaFav(clienta.masajista_preferida || '');
+    setNotasEspeciales(clienta.notas_especiales || '');
+    setIntensidad(clienta.intensidad_preferida || 'media');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const handleSave = async () => {
     setSaving(true);
-    updateClienta(clienta.id, {
-      nombre,
-      apellidos,
-      telefono,
-      direccion_habitual: direccion,
-      servicio_favorito: servicioFav as TipoServicio,
-      masajista_preferida: masajistaFav,
-      notas_especiales: notasEspeciales,
-      intensidad_preferida: intensidad as any
-    });
-    setTimeout(() => setSaving(false), 1000);
+    setSavedOk(false);
+    try {
+      await updateClienta(clienta.id, {
+        nombre,
+        apellidos,
+        telefono,
+        direccion_habitual: direccion,
+        servicio_favorito: servicioFav as TipoServicio,
+        masajista_preferida: masajistaFav,
+        notas_especiales: notasEspeciales,
+        intensidad_preferida: intensidad as any
+      });
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 2500);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleChangePIN = () => {
-    if (newPin.length === 4 && newPin === confirmPin) {
-      // En producción, aquí se actualizaría el PIN
-      alert('PIN actualizado correctamente');
-      setShowPinModal(false);
-      setNewPin('');
-      setConfirmPin('');
-    } else {
-      alert('Los PINs no coinciden o no tienen 4 dígitos');
+  const handleChangePassword = async () => {
+    setPassMsg('');
+    if (newPass.length < 6) { setPassMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (newPass !== confirmPass) { setPassMsg('Las contraseñas no coinciden.'); return; }
+    try {
+      await changePassword(newPass);
+      setShowPassModal(false);
+      setNewPass('');
+      setConfirmPass('');
+      alert('Contraseña actualizada correctamente.');
+    } catch (e: any) {
+      setPassMsg(e?.message || 'No se pudo cambiar la contraseña.');
     }
   };
 
@@ -270,20 +294,21 @@ export default function MisDatos() {
 
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
           <div>
-            <div className="font-medium text-gray-900">PIN de acceso</div>
-            <div className="text-sm text-gray-600 mt-1">Tu PIN actual: ••••</div>
+            <div className="font-medium text-gray-900">Contraseña</div>
+            <div className="text-sm text-gray-600 mt-1">Cambia tu contraseña de acceso</div>
           </div>
           <button
-            onClick={() => setShowPinModal(true)}
+            onClick={() => { setShowPassModal(true); setPassMsg(''); }}
             className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition text-sm font-medium"
           >
-            Cambiar PIN
+            Cambiar contraseña
           </button>
         </div>
       </div>
 
       {/* Botón guardar */}
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-3">
+        {savedOk && <span className="text-sm text-green-600 font-medium">✓ Guardado correctamente</span>}
         <button
           onClick={handleSave}
           disabled={saving}
@@ -303,58 +328,59 @@ export default function MisDatos() {
         </button>
       </div>
 
-      {/* Modal cambiar PIN */}
-      {showPinModal && (
+      {/* Modal cambiar contraseña */}
+      {showPassModal && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowPinModal(false)} />
+          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowPassModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar PIN</h3>
-              
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar contraseña</h3>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nuevo PIN (4 dígitos)
+                    Nueva contraseña (mín. 6 caracteres)
                   </label>
                   <input
                     type="password"
-                    maxLength={4}
-                    value={newPin}
-                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-center text-2xl tracking-widest"
-                    placeholder="••••"
+                    value={newPass}
+                    onChange={(e) => setNewPass(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                    placeholder="••••••••"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirmar PIN
+                    Confirmar contraseña
                   </label>
                   <input
                     type="password"
-                    maxLength={4}
-                    value={confirmPin}
-                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-center text-2xl tracking-widest"
-                    placeholder="••••"
+                    value={confirmPass}
+                    onChange={(e) => setConfirmPass(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                    placeholder="••••••••"
                   />
                 </div>
+
+                {passMsg && <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm">{passMsg}</div>}
               </div>
 
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => {
-                    setShowPinModal(false);
-                    setNewPin('');
-                    setConfirmPin('');
+                    setShowPassModal(false);
+                    setNewPass('');
+                    setConfirmPass('');
+                    setPassMsg('');
                   }}
                   className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={handleChangePIN}
-                  disabled={newPin.length !== 4 || confirmPin.length !== 4}
+                  onClick={handleChangePassword}
+                  disabled={newPass.length < 6 || confirmPass.length < 6}
                   className="flex-1 px-4 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cambiar

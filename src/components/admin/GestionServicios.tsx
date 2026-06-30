@@ -5,9 +5,10 @@ import { TipoServicio } from '../../types';
 import EmptyState from '../EmptyState';
 
 export default function GestionServicios() {
-  const { servicios, reservas } = useApp();
+  const { servicios, reservas, createServicio, updateServicio, deleteServicio } = useApp();
   const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -65,7 +66,7 @@ export default function GestionServicios() {
     setFormData(prev => ({ ...prev, precio: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (formData.precio > PRECIO_MAXIMO) {
       setPrecioError(`El precio no puede superar los ${PRECIO_MAXIMO}€`);
       return;
@@ -76,38 +77,46 @@ export default function GestionServicios() {
       return;
     }
 
-    if (showModal === 'create') {
-      // En producción crearía un nuevo servicio
-      console.log('Crear servicio:', formData);
-      alert('Función de creación preparada - Requiere backend');
-    } else if (showModal === 'edit' && editingId) {
-      // En producción actualizaría el servicio
-      console.log('Actualizar servicio:', editingId, formData);
-      alert('Función de edición preparada - Requiere backend');
+    setBusy(true);
+    try {
+      if (showModal === 'create') {
+        await createServicio(formData);
+      } else if (showModal === 'edit' && editingId) {
+        await updateServicio(editingId, formData);
+      }
+      setShowModal(null);
+      resetForm();
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo guardar el servicio');
+    } finally {
+      setBusy(false);
     }
-
-    setShowModal(null);
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const reservasServicio = reservas.filter(r => r.servicio_id === id);
     if (reservasServicio.length > 0) {
       alert(`No se puede eliminar. Hay ${reservasServicio.length} reservas asociadas a este servicio.`);
       setShowDeleteConfirm(null);
       return;
     }
-
-    // En producción eliminaría el servicio
-    console.log('Eliminar servicio:', id);
-    alert('Función de eliminación preparada - Requiere backend');
-    setShowDeleteConfirm(null);
+    try {
+      await deleteServicio(id);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo eliminar el servicio');
+    } finally {
+      setShowDeleteConfirm(null);
+    }
   };
 
-  const handleToggleActivo = (id: string) => {
-    // En producción togglearía el estado activo
-    console.log('Toggle activo servicio:', id);
-    alert('Función preparada - Requiere backend');
+  const handleToggleActivo = async (id: string) => {
+    const servicio = servicios.find(s => s.id === id);
+    if (!servicio) return;
+    try {
+      await updateServicio(id, { activo: !servicio.activo });
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo cambiar el estado del servicio');
+    }
   };
 
   const stats = {
@@ -399,10 +408,10 @@ export default function GestionServicios() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!formData.nombre || !formData.tipo || !!precioError}
+                  disabled={!formData.nombre || !formData.tipo || !!precioError || busy}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {showModal === 'create' ? 'Crear Servicio' : 'Guardar Cambios'}
+                  {busy ? 'Guardando...' : (showModal === 'create' ? 'Crear Servicio' : 'Guardar Cambios')}
                 </button>
               </div>
             </div>

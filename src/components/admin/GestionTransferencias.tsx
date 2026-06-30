@@ -3,9 +3,10 @@ import { CreditCard, CheckCircle, Clock, Send, X } from 'lucide-react';
 import { useApp } from '../../AppContext';
 
 export default function GestionTransferencias() {
-  const { transferencias, masajistas, configuracion } = useApp();
+  const { transferencias, masajistas, configuracion, updateTransferencia, cerrarCiclo } = useApp();
   const [showEnviarModal, setShowEnviarModal] = useState<string | null>(null);
   const [referencia, setReferencia] = useState('');
+  const [cerrando, setCerrando] = useState(false);
 
   // Calcular ciclo actual
   const hoy = new Date();
@@ -29,20 +30,40 @@ export default function GestionTransferencias() {
     return badges[estado as keyof typeof badges] || badges.pendiente;
   };
 
-  const handleMarcarEnviada = () => {
+  const handleMarcarEnviada = async () => {
     if (showEnviarModal && referencia.trim()) {
-      // En producción actualizaría el estado
-      console.log('Marcar como enviada:', showEnviarModal, 'Ref:', referencia);
-      alert(`Transferencia marcada como enviada.\nReferencia: ${referencia}`);
-      setShowEnviarModal(null);
-      setReferencia('');
+      try {
+        await updateTransferencia(showEnviarModal, 'enviada', referencia.trim());
+        setShowEnviarModal(null);
+        setReferencia('');
+      } catch (e: any) {
+        alert(e?.message || 'No se pudo marcar como enviada');
+      }
     }
   };
 
-  const handleConfirmar = (id: string) => {
+  const handleConfirmar = async (id: string) => {
     if (confirm('¿Confirmar que la transferencia se ha completado?')) {
-      console.log('Confirmar transferencia:', id);
-      alert('Transferencia confirmada');
+      try {
+        await updateTransferencia(id, 'confirmada');
+      } catch (e: any) {
+        alert(e?.message || 'No se pudo confirmar la transferencia');
+      }
+    }
+  };
+
+  const handleCerrarCiclo = async () => {
+    if (!confirm('¿Cerrar el ciclo actual y generar las transferencias de las sesiones completadas?')) return;
+    setCerrando(true);
+    try {
+      const ini = inicioQuincena.toISOString().split('T')[0];
+      const fin = finQuincena.toISOString().split('T')[0];
+      const res = await cerrarCiclo(ini, fin);
+      alert(`Ciclo cerrado. Transferencias generadas para ${res?.reservas_processed ?? 0} sesiones.`);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo cerrar el ciclo');
+    } finally {
+      setCerrando(false);
     }
   };
 
@@ -70,11 +91,21 @@ export default function GestionTransferencias() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Gestión de Transferencias</h2>
-        <p className="text-gray-600 mt-1">
-          Sistema de pagos {configuracion.ciclo_pago === 'quincenal' ? 'quincenal' : 'semanal'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Transferencias</h2>
+          <p className="text-gray-600 mt-1">
+            Sistema de pagos {configuracion.ciclo_pago === 'quincenal' ? 'quincenal' : 'semanal'}
+          </p>
+        </div>
+        <button
+          onClick={handleCerrarCiclo}
+          disabled={cerrando}
+          className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center gap-2 disabled:opacity-50"
+        >
+          <CreditCard size={18} />
+          {cerrando ? 'Cerrando ciclo...' : 'Cerrar ciclo y generar pagos'}
+        </button>
       </div>
 
       {/* Stats */}

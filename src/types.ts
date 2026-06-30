@@ -109,6 +109,7 @@ export interface Reserva {
   notas_clienta?: string;
   motivo_rechazo?: string;
   valoracion?: Valoracion;
+  pago_estado?: 'pendiente' | 'pagado' | 'reembolsado' | 'fallido';
   creada_en: string; // ISO datetime
 }
 
@@ -197,7 +198,21 @@ export interface AppContextType {
   // Actions
   updateMasajista: (id: string, data: Partial<Masajista>) => void;
   updateClienta: (id: string, data: Partial<Clienta>) => void;
-  createReserva: (data: Omit<Reserva, 'id' | 'codigo' | 'creada_en'>) => Reserva;
+  changePassword: (newPassword: string) => Promise<void>;
+  createServicio: (data: Partial<Servicio>) => Promise<void>;
+  updateServicio: (id: string, data: Partial<Servicio>) => Promise<void>;
+  deleteServicio: (id: string) => Promise<void>;
+  getDisponibilidad: (masajistaId: string) => Promise<{ dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]>;
+  saveDisponibilidad: (masajistaId: string, slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]) => Promise<void>;
+  updateTransferencia: (id: string, estado: TransferenciaEstado, referencia?: string) => Promise<void>;
+  cerrarCiclo: (fechaInicio: string, fechaFin: string) => Promise<any>;
+  createMasajista: (payload: { email: string; password: string; full_name: string; phone?: string }) => Promise<any>;
+  uploadDocumento: (masajistaId: string, tipo: string, file: File) => Promise<void>;
+  getDocumentoUrl: (storagePath: string) => Promise<string>;
+  uploadAvatar: (file: File) => Promise<void>;
+  stripeEnabled: boolean;
+  crearCheckoutReserva: (reservaId: string) => Promise<void>;
+  createReserva: (data: Omit<Reserva, 'id' | 'codigo' | 'creada_en'>) => Promise<Reserva>;
   updateReserva: (id: string, data: Partial<Reserva>) => void;
   createValoracion: (data: Omit<Valoracion, 'id'>) => void;
   aceptarSolicitud: (reservaId: string, masajistaId: string) => void;
@@ -214,4 +229,6 @@ export interface AppContextType {
   // UI State
   darkMode: boolean;
   toggleDarkMode: () => void;
+  currentView: string;
+  navigate: (view: string) => void;
 }

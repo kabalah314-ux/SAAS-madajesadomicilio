@@ -4,7 +4,8 @@ import { useApp } from '../../AppContext';
 import { Masajista, TipoServicio, Documento } from '../../types';
 
 export default function GestionMasajistas() {
-  const { masajistas, updateMasajista, verificarDocumento, currentUser, reservas, transferencias } = useApp();
+  const { masajistas, updateMasajista, createMasajista, verificarDocumento, currentUser, reservas, transferencias } = useApp();
+  const [busy, setBusy] = useState(false);
   const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
   const [showDrawer, setShowDrawer] = useState<Masajista | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'activas' | 'pendientes' | 'suspendidas'>('todos');
@@ -70,15 +71,46 @@ export default function GestionMasajistas() {
     setShowModal('edit');
   };
 
-  const handleSubmit = () => {
-    if (showModal === 'edit' && editingId) {
-      const updateData: any = { ...formData };
-      if (!formData.pin) delete updateData.pin; // No actualizar PIN si está vacío
-      updateMasajista(editingId, updateData);
-      setShowModal(null);
-      resetForm();
+  const handleSubmit = async () => {
+    setBusy(true);
+    try {
+      if (showModal === 'edit' && editingId) {
+        const updateData: any = { ...formData };
+        delete updateData.pin; // el PIN ya no se usa (auth por contraseña)
+        await updateMasajista(editingId, updateData);
+        setShowModal(null);
+        resetForm();
+      } else if (showModal === 'create') {
+        if (!formData.email || !formData.nombre) {
+          alert('Nombre y email son obligatorios');
+          return;
+        }
+        const tempPass = 'Masaje' + Math.floor(1000 + Math.random() * 9000);
+        const res = await createMasajista({
+          email: formData.email,
+          password: tempPass,
+          full_name: `${formData.nombre} ${formData.apellidos}`.trim(),
+          phone: formData.telefono || undefined,
+        });
+        const newId = res?.user_id;
+        // Rellenar el perfil profesional recién creado.
+        if (newId && (formData.bio || formData.especialidades.length || formData.zonas_cobertura.length || formData.iban)) {
+          await updateMasajista(newId, {
+            bio: formData.bio,
+            especialidades: formData.especialidades,
+            zonas_cobertura: formData.zonas_cobertura,
+            iban: formData.iban,
+          } as any);
+        }
+        alert(`Masajista creada ✅\n\nEmail: ${formData.email}\nContraseña temporal: ${tempPass}\n\nCompártela con ella; podrá cambiarla al entrar. Recuerda verificar sus documentos para que aparezca en las reservas.`);
+        setShowModal(null);
+        resetForm();
+      }
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo completar la operación');
+    } finally {
+      setBusy(false);
     }
-    // Create nueva masajista requeriría backend
   };
 
   const handleToggleActivo = (id: string, activo: boolean) => {
@@ -394,10 +426,10 @@ export default function GestionMasajistas() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!formData.nombre || !formData.email}
+                  disabled={!formData.nombre || !formData.email || busy}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50"
                 >
-                  {showModal === 'create' ? 'Crear' : 'Guardar Cambios'}
+                  {busy ? 'Procesando...' : (showModal === 'create' ? 'Crear' : 'Guardar Cambios')}
                 </button>
               </div>
             </div>

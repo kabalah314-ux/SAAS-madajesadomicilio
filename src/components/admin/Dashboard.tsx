@@ -3,7 +3,11 @@ import { TrendingUp, Users, Calendar, DollarSign, UserCheck, Clock } from 'lucid
 import { useApp } from '../../AppContext';
 
 export default function Dashboard() {
-  const { reservas, masajistas, clientas, servicios } = useApp();
+  const { reservas, masajistas, clientas, servicios, configuracion } = useApp();
+
+  // Porcentajes reales (configurables desde Admin → Configuración)
+  const comisionPct = configuracion.comision_plataforma_pct;
+  const pagoPct = 100 - comisionPct;
 
   // KPIs principales
   const totalReservas = reservas.length;
@@ -11,7 +15,7 @@ export default function Dashboard() {
   const ingresosMes = reservas
     .filter(r => r.estado === 'completada' && new Date(r.fecha).getMonth() === new Date().getMonth())
     .reduce((sum, r) => sum + r.precio_total, 0);
-  const comisionMes = Math.round(ingresosMes * 0.4); // 40% comisión
+  const comisionMes = Math.round(ingresosMes * comisionPct / 100);
   
   const tasaCompletadas = reservas.length > 0
     ? Math.round((reservas.filter(r => r.estado === 'completada').length / reservas.length) * 100)
@@ -132,7 +136,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-gray-900">{comisionMes}€</div>
             </div>
           </div>
-          <div className="text-sm text-gray-500">40% de {ingresosMes}€</div>
+          <div className="text-sm text-gray-500">{comisionPct}% de {ingresosMes}€</div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -145,7 +149,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-gray-900">{ingresosMes - comisionMes}€</div>
             </div>
           </div>
-          <div className="text-sm text-gray-500">60% de {ingresosMes}€</div>
+          <div className="text-sm text-gray-500">{pagoPct}% de {ingresosMes}€</div>
         </div>
       </div>
 

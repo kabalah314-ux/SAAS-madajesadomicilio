@@ -1,9 +1,9 @@
-import { LogOut, Bell, Moon, Sun } from 'lucide-react';
+import { LogOut, Bell } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { useState } from 'react';
 
 export default function Header() {
-  const { currentUser, logout, notificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas, darkMode, toggleDarkMode } = useApp();
+  const { currentUser, logout, notificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } = useApp();
   const [showNotif, setShowNotif] = useState(false);
 
   if (!currentUser) return null;
@@ -44,15 +44,6 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 hover:bg-gray-100 rounded-lg transition"
-              title={darkMode ? 'Modo claro' : 'Modo oscuro'}
-            >
-              {darkMode ? <Sun size={20} className="text-gray-600" /> : <Moon size={20} className="text-gray-600" />}
-            </button>
-
             {/* Notificaciones */}
             <div className="relative">
               <button

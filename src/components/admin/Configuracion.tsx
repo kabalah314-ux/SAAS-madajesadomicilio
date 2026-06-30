@@ -30,7 +30,7 @@ export default function Configuracion() {
     setErrors(newErrors);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validación final
     if (formData.comision_plataforma_pct + formData.pago_masajista_pct !== 100) {
       setErrors({ porcentajes: 'La suma de comisión y pago debe ser 100%' });
@@ -43,13 +43,15 @@ export default function Configuracion() {
     }
 
     setSaving(true);
-    updateConfiguracion(formData);
-    
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await updateConfiguracion(formData);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    }, 1000);
+    } catch (err: any) {
+      setErrors({ guardar: err?.message || 'No se pudo guardar la configuración' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -294,6 +296,12 @@ export default function Configuracion() {
           </div>
         </div>
       </div>
+
+      {errors.guardar && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded">
+          <p className="text-sm text-red-800">{errors.guardar}</p>
+        </div>
+      )}
 
       {/* Botón guardar */}
       <div className="sticky bottom-6 flex justify-end">

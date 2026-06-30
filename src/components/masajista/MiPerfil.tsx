@@ -1,32 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Save, Star } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { TipoServicio } from '../../types';
 
 export default function MiPerfil() {
-  const { currentUser, updateMasajista } = useApp();
+  const { currentUser, updateMasajista, uploadAvatar } = useApp();
   const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
-  if (!currentUser || currentUser.role !== 'masajista') return null;
-
-  const masajista = currentUser as any;
+  const masajista = (currentUser as any) || {};
   const [bio, setBio] = useState(masajista.bio || '');
   const [especialidades, setEspecialidades] = useState<TipoServicio[]>(masajista.especialidades || []);
   const [zonasCobertura, setZonasCobertura] = useState<string[]>(masajista.zonas_cobertura || []);
   const [radioCob, setRadioCob] = useState(masajista.radio_cobertura_km || 5);
 
+  // Re-sincroniza cuando llegan los datos reales de la masajista.
+  useEffect(() => {
+    setBio(masajista.bio || '');
+    setEspecialidades(masajista.especialidades || []);
+    setZonasCobertura(masajista.zonas_cobertura || []);
+    setRadioCob(masajista.radio_cobertura_km || 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  if (!currentUser || currentUser.role !== 'masajista') return null;
+
   const zonasDisponibles = ['Centro', 'Chamartín', 'Salamanca', 'Retiro', 'Chamberí', 'Moncloa', 'Argüelles'];
   const especialidadesDisponibles: TipoServicio[] = ['Relajante', 'Descontracturante', 'Deportivo', 'Prenatal', 'Ayurveda', 'Parejas'];
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    updateMasajista(masajista.id, {
-      bio,
-      especialidades,
-      zonas_cobertura: zonasCobertura,
-      radio_cobertura_km: radioCob
-    });
-    setTimeout(() => setSaving(false), 1000);
+    setSavedOk(false);
+    try {
+      await updateMasajista(masajista.id, {
+        bio,
+        especialidades,
+        zonas_cobertura: zonasCobertura,
+        radio_cobertura_km: radioCob
+      } as any);
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('La imagen supera los 5MB.'); return; }
+    setSubiendoFoto(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo subir la foto');
+    } finally {
+      setSubiendoFoto(false);
+    }
   };
 
   const toggleEspecialidad = (esp: TipoServicio) => {
@@ -63,8 +96,14 @@ export default function MiPerfil() {
                 <User size={32} className="text-gray-400" />
               </div>
             )}
-            <button className="absolute bottom-0 right-0 w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white hover:bg-teal-600 transition shadow-md">
-              📷
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={onAvatarSelected} />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={subiendoFoto}
+              title="Cambiar foto"
+              className="absolute bottom-0 right-0 w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white hover:bg-teal-600 transition shadow-md disabled:opacity-50"
+            >
+              {subiendoFoto ? '…' : '📷'}
             </button>
           </div>
 
@@ -213,7 +252,8 @@ export default function MiPerfil() {
       </div>
 
       {/* Botón guardar */}
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-3">
+        {savedOk && <span className="text-sm text-green-600 font-medium">✓ Guardado</span>}
         <button
           onClick={handleSave}
           disabled={saving}
