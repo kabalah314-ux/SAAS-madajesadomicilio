@@ -219,6 +219,7 @@ export interface AppContextType {
   stripeEnabled: boolean;
   crearCheckoutReserva: (reservaId: string) => Promise<void>;
   createReserva: (data: Omit<Reserva, 'id' | 'codigo' | 'creada_en'>) => Promise<Reserva>;
+  loadReservasCliente: (clienteId: string) => Promise<void>;
   updateReserva: (id: string, data: Partial<Reserva>) => void;
   createValoracion: (data: Omit<Valoracion, 'id'>) => void;
   aceptarSolicitud: (reservaId: string, masajistaId: string) => void;

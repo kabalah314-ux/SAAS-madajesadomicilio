@@ -19,6 +19,7 @@ import Disponibilidad from './components/masajista/Disponibilidad';
 import MisDatos from './components/clienta/MisDatos';
 import NuevaReserva from './components/clienta/NuevaReserva';
 import MisReservas from './components/clienta/MisReservas';
+import Asistente from './components/clienta/Asistente';
 
 // Admin
 import Dashboard from './components/admin/Dashboard';
@@ -78,6 +79,7 @@ function AppContent() {
     if (currentUser.role === 'clienta') {
       switch (currentView) {
         case 'inicio': return <ClienteInicioStub />;
+        case 'asistente': return <Asistente />;
         case 'nueva-reserva': return <NuevaReserva />;
         case 'mis-reservas': return <MisReservas />;
         case 'mis-datos': return <MisDatos />;
@@ -135,7 +137,18 @@ function ClienteInicioStub() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="text-4xl mb-3">💬</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Asistente</h3>
+          <p className="text-gray-600 text-sm mb-4">
+            Pregunta lo que quieras o pide tu cita hablando con nuestro asistente
+          </p>
+          <button onClick={() => navigate('asistente')} className="w-full px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition">
+            Abrir chat
+          </button>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="text-4xl mb-3">🌸</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Nueva Reserva</h3>

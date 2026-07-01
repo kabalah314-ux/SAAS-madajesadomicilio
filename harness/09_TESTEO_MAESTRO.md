@@ -246,6 +246,57 @@ email) — solo se notificaba a la masajista y al admin. Además pidió que el e
 
 > **✅ TODA LA GUÍA EN VERDE:** FA1–FA9 y FB1–FB8 verificados en vivo contra el código actual. FA2 12/12, clásicos 16/16, agente 9/9. Bugs cazados y arreglados en las 3 rondas. Frontend desplegado a Vercel y verificado en producción.
 
+### Pendiente de construir · FC1 — Foto de perfil en las 3 categorías (2026-07-02, pedido por el usuario)
+Hoy `uploadAvatar` (AppContext, sube a Storage bucket `avatars` + guarda `profiles.avatar_url`) **solo
+está enganchado en la masajista** (`MiPerfil.tsx`, verificado en vivo en sesiones anteriores). Falta
+en clienta y admin. Tarea en `01_ESTADO_Y_PLAN.md` · Fase 10.1.
+
+| # | Sección | Debe cumplir | Estado |
+|---|---------|--------------|--------|
+| P1 | Masajista | Sube foto desde `MiPerfil`, se guarda y persiste | ✅ (ya hecho, verificado en sesión anterior) |
+| P2 | Clienta | Puede subir/cambiar su foto de perfil desde `MisDatos` | ⬜ pendiente de construir |
+| P3 | Admin | Puede subir/cambiar su foto de perfil (no hay página "Mi Perfil" de admin hoy — decidir dónde) | ⬜ pendiente de construir |
+| P4 | Transversal | El avatar subido se ve reflejado en `Header.tsx` (barra superior) para los 3 roles | ⬜ pendiente (hoy ningún rol muestra foto ahí) |
+
+### FC2 — Chat con el agente DESDE la cuenta de la clienta (2026-07-02) · 🟢 CONSTRUIDO Y VALIDADO 16/16
+Hoy el agente (`supabase/functions/agente`) solo es invocable por **admin** (JWT) o por **webhook secret**
+(canales `whatsapp`/`telefono`, aún sin conectar) — una clienta logueada recibiría **401**. Y las tablas
+`agente_conversaciones`/`agente_mensajes` solo las lee el admin por RLS (`is_admin()`). El objetivo:
+la clienta, **desde su propia cuenta**, puede abrir un chat, preguntar lo que quiera, y **pedir una cita
+por IA** (en vez de/además del formulario manual de "Nueva Reserva").
+
+**Diseño (antes de picar código):**
+- **Nuevo canal `'app'`** (columna `canal` es texto libre, sin CHECK — no hace falta migración para
+  añadir el valor) para diferenciarlo de `test`/`whatsapp`/`telefono` en analítica.
+- **Autorización del Edge Function ampliada:** admite también el **JWT de la propia clienta**
+  (`role='cliente'`). Cuando el que llama es una clienta autenticada, el `cliente_id` de la
+  conversación se resuelve **del JWT verificado** (`user.id`), NUNCA del teléfono que mande el body
+  — así una clienta no puede hacerse pasar por otra ni crear una reserva a nombre de otra persona.
+- **Sin tocar RLS de `agente_*`:** el chat de la clienta NO lee esas tablas directamente (seguirían
+  bloqueadas para su rol); el historial se mantiene en **estado local de React** turno a turno, usando
+  el `reply` que ya devuelve el Edge Function (mismo patrón que "Probar agente" del admin, pero sin
+  releer la tabla).
+- **UI nueva:** vista "Asistente" (o similar) en el menú de la clienta (`Sidebar.tsx`), componente de
+  chat reusando el patrón visual de `admin/Agente.tsx` (burbujas cliente/agente).
+- **La reserva creada por el chat debe comportarse EXACTAMENTE igual** que cualquier otra (importes
+  por trigger, notificación al admin+masajista+la propia clienta ["Hemos recibido tu solicitud"],
+  visible en "Mis Reservas") — reusa toda la lógica de `crear_reserva` ya probada en FA3/FA5.
+
+| # | Sección | Debe cumplir | Estado |
+|---|---------|--------------|--------|
+| Q1 | Clienta | Ve una opción de chat en su menú y puede abrirlo | ✅ nueva vista "Asistente" en Sidebar + tarjeta de acceso en Inicio |
+| Q2 | Clienta | Puede preguntar (servicios, precios, zonas) y el agente responde con datos reales (`info_negocio`) | ✅ responde precios reales (55€ etc.), no inventa |
+| Q3 | Clienta | Puede pedir cita por chat; la reserva queda con **su `cliente_id` real** (nunca por teléfono/spoofable) | ✅ `cliente_id` resuelto del JWT; teléfono del body se ignora por completo |
+| Q4 | Sistema | La reserva creada por chat dispara TODO el hilo normal: importes BD, notif admin+masajista+ella misma, visible en Mis Reservas | ✅ importes 55/13.75/41.25, 3 notificaciones, aparece al instante en Mis Reservas (se expuso `loadReservasCliente` y se refresca tras cada turno) |
+| Q5 | Seguridad | Una clienta **no puede** invocar el agente en nombre de otra (el `cliente_id` se resuelve del JWT, se ignora cualquier id/teléfono que mande en el body) | ✅ **verificado con ataque real**: Ana no pudo secuestrar el `conversation_id` de otra clienta (se le crea una conversación nueva propia; la ajena queda intacta) |
+| Q6 | Seguridad | Un rol que no sea `cliente` (p.ej. `masajista`) no puede usar el canal `app` para colarse | ✅ una masajista recibe 401 al intentarlo |
+
+**Cómo se construyó:**
+- **Backend (`agente/index.ts`):** la autorización ahora también acepta el JWT de un usuario `role='cliente'` (antes solo admin/webhook secret). Cuando quien llama es una clienta autenticada: `canal` se fuerza a `'app'`, el `telefono` del body se descarta, y el `cliente_id` de la conversación es **siempre** `user.id` del JWT verificado — nunca dato que mande el cliente. **Anti-IDOR:** si se pasa un `conversation_id` que no pertenece a esa clienta (ajeno, de un contacto, o inventado), se descarta y se abre una conversación nueva en vez de leerla/continuarla.
+- **Frontend:** nueva vista `src/components/clienta/Asistente.tsx` (chat con estado local, sin leer las tablas `agente_*` — siguen bloqueadas por RLS a `is_admin()`, sin tocarlas). Menú + tarjeta de acceso en Inicio.
+- **Runner:** `harness/tests/test_asistente_cliente.py` (16/16, incluye los 2 intentos de ataque) + `harness/tests/pw_asistente.cjs` (Playwright: login→chat→pregunta→reserva→aparece en Mis Reservas, verificado en local Y en producción).
+- **Sin migraciones** (canal `'app'` es texto libre, sin CHECK; RLS de `agente_*` sin tocar).
+
 ## 5. 📓 Diario de rondas del loop (lo más nuevo arriba)
 
 - 2026-07-01 · **Ronda 1 · DETECCIÓN · FA2** (reserva contacto nuevo por el agente) · 11/12 casillas ✅. Hilo completo cruzando entrada→sistema→masajista→admin verificado con RLS. Bugs: **B-01** (admin no notificado, 🟠) y **B-02** (código no comunicado al cliente, 🟡). Runner `test_FA2_reserva_contacto_nuevo.py`, limpia tras de sí. · detección hecha, sin tocar código.

@@ -144,6 +144,26 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 
 ---
 
+## FASE 10 — Pulido de perfil 🚧
+
+- [ ] **10.1 Foto de perfil en las 3 categorías.** Hoy `uploadAvatar` (en `AppContext.tsx`) ya
+  sube a Storage (bucket `avatars`) y guarda `profiles.avatar_url`, y funciona de verdad — pero
+  **solo está enganchado en `src/components/masajista/MiPerfil.tsx`**. Faltan:
+  - [ ] **Clienta:** añadir la subida de foto en `src/components/clienta/MisDatos.tsx` (reusar `uploadAvatar`, mismo patrón que MiPerfil: input file oculto + botón cámara + preview).
+  - [ ] **Admin:** el admin no tiene página de "Mi Perfil" (solo `Configuracion`, que es configuración del negocio, no personal). Decidir: ¿foto en `Configuracion` o crear una vista "Mi Perfil" nueva para admin? Reusar `uploadAvatar`.
+  - [ ] Mostrar el avatar ya subido en `Header.tsx` (hoy solo hay iniciales/nombre, ningún rol muestra la foto en la barra superior).
+  - [ ] Verificar en vivo los 3 roles (subir, ver preview, refrescar y que persista) — detalle completo en `09_TESTEO_MAESTRO.md`.
+
+- [x] **10.2 Chat con el agente desde la cuenta de la clienta — COMPLETO Y VERIFICADO** (2026-07-02).
+  Nueva vista "Asistente" (menú + tarjeta en Inicio); Edge Function `agente` amplía su autorización a
+  JWT de `role='cliente'` (canal `'app'`, `cliente_id` resuelto del JWT, nunca del body). Reservar por
+  chat dispara el hilo completo (importes/notificaciones/Mis Reservas se refresca al instante). **2
+  ataques probados y bloqueados:** secuestro de `conversation_id` ajeno (IDOR) y suplantación de rol
+  (masajista→401). Runner `test_asistente_cliente.py` 16/16 + Playwright local y en producción.
+  Detalle completo en `09_TESTEO_MAESTRO.md · FC2`. Desplegado (`agente` redeploy + frontend a Vercel).
+
+---
+
 ## 📓 Diario de progreso (lo más nuevo arriba)
 
 > Una línea por tarea terminada: `AAAA-MM-DD · tarea · qué se hizo · ¿compila/verificado?`

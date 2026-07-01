@@ -993,6 +993,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     stripeEnabled,
     crearCheckoutReserva,
     createReserva,
+    loadReservasCliente,
     updateReserva,
     createValoracion,
     aceptarSolicitud,

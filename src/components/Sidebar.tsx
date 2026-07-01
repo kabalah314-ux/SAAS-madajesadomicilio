@@ -69,6 +69,7 @@ export default function Sidebar({ currentView, setCurrentView, mobileOpen = fals
     if (currentUser.role === 'clienta') {
       return [
         { id: 'inicio', label: 'Inicio', icon: Home },
+        { id: 'asistente', label: 'Asistente', icon: Bot },
         { id: 'nueva-reserva', label: 'Nueva Reserva', icon: Calendar },
         { id: 'mis-reservas', label: 'Mis Reservas', icon: ClipboardList },
         { id: 'mis-datos', label: 'Mis Datos', icon: User }

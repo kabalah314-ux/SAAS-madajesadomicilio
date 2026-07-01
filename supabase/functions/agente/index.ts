@@ -165,8 +165,9 @@ async function log(convId: string, rol: string, contenido: string, metadata: any
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-  // --- Auth: webhook secret O admin JWT ---
+  // --- Auth: webhook secret O admin JWT O clienta autenticada (canal 'app', su propia cuenta) ---
   let authorized = false;
+  let authCliente: { id: string } | null = null; // identidad de CONFIANZA (del JWT), nunca del body
   if (WEBHOOK_SECRET && req.headers.get("x-webhook-secret") === WEBHOOK_SECRET) authorized = true;
   else {
     const bearer = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -175,28 +176,44 @@ serve(async (req) => {
       if (user) {
         const { data: p } = await sb.from("profiles").select("role").eq("id", user.id).single();
         if (p?.role === "admin") authorized = true;
+        else if (p?.role === "cliente") { authorized = true; authCliente = { id: user.id }; }
       }
     }
   }
   if (!authorized) return json({ error: "no autorizado" }, 401);
 
   const body = await req.json().catch(() => ({}));
-  const { conversation_id, canal = "test", telefono: telefonoRaw = null, mensaje = "" } = body;
+  let { conversation_id, canal = "test", telefono: telefonoRaw = null } = body;
+  const { mensaje = "" } = body;
+  // Clienta autenticada: canal fijo 'app' y el teléfono del body se IGNORA por completo —
+  // la identidad viene SIEMPRE del JWT verificado, nunca de datos que mande quien llama
+  // (si no, una clienta podría intentar hacerse pasar por otra).
+  if (authCliente) { canal = "app"; telefonoRaw = null; }
   // A2: normalizar el teléfono (caller ID) para una identidad estable — sin espacios,
   // guiones, paréntesis ni puntos. Evita contactos duplicados por variaciones de formato.
   const telefono = telefonoRaw ? String(telefonoRaw).replace(/[\s\-().]/g, "") : null;
 
   if (!OPENROUTER_API_KEY) return json({ error: "El agente no está configurado (falta OPENROUTER_API_KEY)." }, 200);
 
-  // --- Cargar o crear conversación (con identidad por teléfono) ---
+  // --- Cargar o crear conversación (con identidad por teléfono, o por sesión si es clienta) ---
   let conv: any;
   if (conversation_id) {
     const { data } = await sb.from("agente_conversaciones").select("*").eq("id", conversation_id).single();
     conv = data;
+    // Anti-IDOR: si es una clienta autenticada, la conversación cargada TIENE que ser suya.
+    // Si no (ajena, inventada, o de un contacto), se descarta y se abre una nueva — nunca se
+    // continúa/lee una conversación de otra persona.
+    if (authCliente && conv?.cliente_id !== authCliente.id) conv = null;
   }
   if (!conv) {
     let cliente_id: string | null = null, contacto_id: string | null = null, nombreConocido: string | null = null;
-    if (telefono) {
+    if (authCliente) {
+      // Identidad de CONFIANZA: la clienta ya está autenticada, no hace falta (ni se admite)
+      // identificarla por teléfono.
+      cliente_id = authCliente.id;
+      const { data: prof } = await sb.from("profiles").select("full_name").eq("id", authCliente.id).maybeSingle();
+      nombreConocido = prof?.full_name ?? null;
+    } else if (telefono) {
       const { data: prof } = await sb.from("profiles").select("id, full_name, role").eq("phone", telefono).eq("role", "cliente").maybeSingle();
       if (prof) { cliente_id = prof.id; nombreConocido = prof.full_name; }
       else {
