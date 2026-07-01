@@ -6,49 +6,44 @@
 
 ---
 
-## 🟢 ESTADO ACTUAL Y CÓMO CONTINUAR (actualizado 2026-07-01)
+## 🟢 ESTADO ACTUAL Y CÓMO CONTINUAR (actualizado 2026-07-02)
 
-**Resumen:** la app está **funcional, testeada y desplegada**. Ya no está al 50% — el
-grueso está hecho. Ahora mismo lo vivo es el **agente conversacional** (Fase 9).
+**Resumen:** la app está **funcional, testeada de punta a punta y desplegada en producción**. El grueso
+está hecho y verificado. La fuente de verdad del testeo y los diseños es **[`09_TESTEO_MAESTRO.md`](09_TESTEO_MAESTRO.md)**;
+el estado de tareas, **[`01_ESTADO_Y_PLAN.md`](01_ESTADO_Y_PLAN.md)**.
 
-### Qué está hecho
-- **Fases 0–8 completas y verificadas** (seguridad/RLS, flujos de negocio, Stripe *código listo*,
-  automatización, pulido, y camino a vendible: los 8 bloqueantes resueltos a nivel de producto).
-- **Desplegado en Vercel:** **https://saas-madajesadomicilio.vercel.app** (env vars vía `.env.production`;
-  reset de contraseña configurado en Supabase). Revisado en móvil (3 roles, sin desbordes).
-- **Testeo exhaustivo:** 30 checks de datos (`scratchpad e2e_full.py` — se recrea si hace falta) +
-  8 de integraciones (Edge Functions/Storage) + email real de extremo a extremo.
-- **Fase 9 · Agente FASE A COMPLETA** (ver **[`08_AGENTE.md`](08_AGENTE.md)**): tablas de conversaciones +
-  `contactos` (clientes internos sin login), Edge Function `agente` (OpenRouter + herramientas + logging +
-  identidad por teléfono), y sección admin **"Agente"** (lista + transcripción + "Probar agente"). Probado en vivo.
+### Qué está hecho y VERIFICADO EN VIVO
+- **Fases 0–8** (seguridad/RLS, flujos de negocio, automatización, pulido, camino a vendible) + **Fase 9 Agente FASE A** + **FASE C (Análisis)**.
+- **Testeo E2E fresco (`09` rondas 1-3): toda la guía en verde** — FA1–FA9 y FB1–FB8. Runners en `harness/tests/` (committeados): `test_regresion_clasicos.py` (16/16), `test_regresion_agente.py` (9/9), `test_FA2_...`, `test_agente_A1_A2_A3.py`, `test_asistente_cliente.py` (16/16), `test_accesos.py` (7/7), `test_email_solicitud.py`. Playwright: `pw_*.cjs` (capturas fiables; el screenshot del preview MCP va flaky).
+- **Modelo de cuentas (FC · Accesos):** cliente registro libre; **masajista SOLO por invitación del admin** (email con enlace, sección admin "Accesos"); admin puede **promover a admin**; pantalla `SetPassword` (invitación + recuperar contraseña).
+- **Chat de la clienta con el agente (FC2):** vista "Asistente" — pregunta y reserva por IA desde su cuenta; identidad por JWT (no suplantable); **el contexto persiste** al recargar (RLS de solo-lectura propia). 16/16 incl. 2 ataques.
+- **Foto de perfil (FC1):** en los 3 roles (masajista ya la tenía; clienta en MisDatos, admin en Configuración); se ve en el Header.
+- **Email mejorado:** el cliente recibe "hemos recibido tu solicitud"; plantilla con icono + tarjeta de detalles + CTA (antes texto plano).
+- **Migraciones aplicadas hasta `_23`** (en producción). Edge Functions desplegadas: `agente`, `admin-actions`, `expire-reservas`, `send-email`. Cron `expire-reservas-cada-15min`.
 
-### Lo siguiente (por dónde seguir)
-- **Fase 9 · FASE B:** conectar el agente a **WhatsApp** y **teléfono (voz)** como canales que llaman a la
-  misma Edge Function `agente` (cambiando `canal`). Y **FASE C:** análisis de datos sobre lo guardado.
-- Detalle y checklist en **[`08_AGENTE.md`](08_AGENTE.md)**. Bloqueantes menores de vendibilidad en **[`06_VENDIBLE.md`](06_VENDIBLE.md)**.
+### Lo siguiente (por dónde seguir) — **FASE 11, PLANTEADA (sin construir)**
+Diseño cerrado con decisiones del usuario en **`09 · FC3`** y checklist en **`01 · Fase 11`**:
+- **Bloque A:** el admin OFRECE la reserva (nuevo estado `ofrecida`) y la masajista acepta/rechaza (hoy el admin asigna directo sin consentimiento). El pool abierto se mantiene en paralelo.
+- **Bloque B:** la **disponibilidad real** (panel de la masajista, hoy no se usa) filtra los huecos del cliente/agente/picker admin. Modo **estricto** (sin disponibilidad = no disponible).
+- **Bloque C:** excepciones por fecha (bloquear un día / disponibilidad extra) además del horario semanal recurrente.
+> Empezar por el Bloque A (el corazón del cambio). ⚠️ Con el modo estricto, cada masajista real DEBE configurar su disponibilidad o no le entrarán reservas.
 
 ### 🔑 Entorno en vivo (datos para trabajar)
-- **Supabase:** proyecto `lzvbfmphtrhvrjjnvqtt` (cuenta `recordingmythings@gmail.com`).
-  La IA administra por **Management API** (`POST https://api.supabase.com/v1/projects/<ref>/database/query`,
-  header `User-Agent` obligatorio o Cloudflare da 403). Las Edge Functions se despliegan con la CLI:
-  `SUPABASE_ACCESS_TOKEN=<token> supabase functions deploy <fn> --project-ref lzvbfmphtrhvrjjnvqtt --no-verify-jwt --use-api`.
-- **Usuarios de prueba** (misma BD en local y desplegado): `admin@` / `masajista@` / `clienta@massflow.app`, contraseña `Test1234`.
-- **Vercel:** proyecto `saas-madajesadomicilio` (team `kabalah314-uxs-projects`). `vercel --prod --yes` redespliega.
-- **Edge Functions desplegadas:** `admin-actions`, `expire-reservas`, `send-email` (Resend), `agente` (OpenRouter). Cron `expire-reservas-cada-15min`.
+- **Repo GitHub:** `github.com/kabalah314-ux/SAAS-madajesadomicilio`, rama de trabajo **`claude/funcional-y-harness`** (todo commiteado y pusheado; **PR #1 abierto a `main`**, sin mergear aún). ⚠️ El repo MassFlow es **SEPARADO** del worktree de Antigravity — los `git` van en `cd C:/Users/oscar/Documents/SAAS-madajesadomicilio`.
+- **Supabase:** proyecto `lzvbfmphtrhvrjjnvqtt`. La IA administra por **Management API** (`POST https://api.supabase.com/v1/projects/<ref>/database/query`, header `User-Agent` obligatorio o Cloudflare da 403). Deploy de Edge Functions con la CLI:
+  `SUPABASE_ACCESS_TOKEN=$(cat sb_token.txt) npx supabase functions deploy <fn> --project-ref lzvbfmphtrhvrjjnvqtt --no-verify-jwt --use-api`.
+- **Token de Supabase** (`sbp_...`) en `C:\Users\oscar\AppData\Local\massflow\sb_token.txt` (fuera del repo). Léelo de ahí. Si da 401, el usuario da uno nuevo. **Helper de tests:** `harness/tests/sbhelp.py` (`q`, `q_as`, `admin_jwt`, `agente`).
+- **Usuarios de prueba** (misma BD local y producción): `admin@` / `masajista@` / `clienta@massflow.app`, contraseña `Test1234`. Solo hay esas 3 cuentas.
+- **Vercel:** proyecto `saas-madajesadomicilio`. `npx vercel --prod --yes` redespliega (usa `.env.production` con claves públicas).
+- **Permisos:** ver `harness/PERMISOS.md`. `defaultMode:acceptEdits`; solo se pide permiso para la lista `ask` (borrados, `vercel --prod`, `git push --force`, secretos…). `supabase functions deploy` NO pide permiso.
+- **Playwright montado** (`harness/tests/pw_*.cjs`, extensión `.cjs` porque el proyecto es ESM). `launch.json` del preview MCP va en el WORKTREE, no en MassFlow.
 
-### ⚠️ Lo que necesita la PRÓXIMA conversación (no persiste entre sesiones)
-Estos valores viven en el *scratchpad de la sesión anterior* (se pierden) o son secretos:
-- **Token de Supabase Management** (`sbp_...`): guardado en `C:\Users\oscar\AppData\Local\massflow\sb_token.txt`
-  (fuera del repo). Léelo de ahí. Si da 401, el usuario da uno nuevo y se sobrescribe ese archivo (y revoca el viejo).
-- **Clave de OpenRouter** (`sk-or-...`): ya está guardada como secreto en Supabase (`OPENROUTER_API_KEY`),
-  así que la función `agente` **ya funciona desplegada**. Solo hace falta el valor otra vez si se quiere
-  probar la función por HTTP directo (o probar desde el panel admin "Probar agente", que usa el JWT del admin).
-- **Secretos de webhook** (`AGENTE_WEBHOOK_SECRET`, `WEBHOOK_SECRET` de email): están en Supabase; sus valores
-  estaban en el scratchpad. Para llamar a las funciones por HTTP directo hará falta regenerarlos o pedir al usuario.
-- Para **Fase B**: cuenta/nº de **WhatsApp** (Twilio/Meta) y **plataforma de voz** (Vapi/Retell) + nº de teléfono.
+### ⚠️ Límite conocido (importante para el plan del usuario)
+- **Email en modo prueba (Resend):** `EMAIL_FROM=onboarding@resend.dev` solo entrega a `recordingmythings@gmail.com`. Invitaciones/notificaciones a emails reales NO llegan hasta **verificar un dominio en resend.com/domains** y cambiar `EMAIL_FROM`. Mientras, la pantalla "Accesos" muestra el enlace de invitación para pasarlo a mano.
+- **Single-tenant:** para vender a varios negocios hoy = clonar (nuevo Supabase + Vercel por cliente). Multi-tenant real = semanas (ver `06_VENDIBLE.md`).
 
 ### Datos de prueba en la BD (se pueden borrar)
-Conversación del agente de "Marta" + su contacto + reserva `MF-001046` (pendiente) + conversación test `+34600000000`.
+`MF-001046` (reserva vieja de "Marta", expirada) + su contacto + conversación test `+34600000000`. Los tests limpian lo suyo (la BD vuelve a 3 reservas base: MF-001000/001/002).
 
 ---
 
