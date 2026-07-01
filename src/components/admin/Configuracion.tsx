@@ -1,13 +1,30 @@
-import { useState } from 'react';
-import { Settings, Save, AlertCircle, Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Settings, Save, AlertCircle, Check, User } from 'lucide-react';
 import { useApp } from '../../AppContext';
 
 export default function Configuracion() {
-  const { configuracion, updateConfiguracion } = useApp();
+  const { configuracion, updateConfiguracion, currentUser, uploadAvatar } = useApp();
   const [formData, setFormData] = useState(configuracion);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  const onAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('La imagen supera los 5MB.'); return; }
+    setSubiendoFoto(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo subir la foto');
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -62,6 +79,38 @@ export default function Configuracion() {
           Configuración del Sistema
         </h2>
         <p className="text-gray-600 mt-1">Gestiona las variables de negocio de MassFlow</p>
+      </div>
+
+      {/* Mi perfil personal (foto del administrador) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <User size={20} />
+          Mi Perfil
+        </h3>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            {currentUser?.foto ? (
+              <img src={currentUser.foto} alt={currentUser.nombre} className="w-20 h-20 rounded-full object-cover" />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                <User size={28} className="text-gray-400" />
+              </div>
+            )}
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={onAvatarSelected} />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={subiendoFoto}
+              title="Cambiar foto"
+              className="absolute bottom-0 right-0 w-7 h-7 bg-teal-500 rounded-full flex items-center justify-center text-white hover:bg-teal-600 transition shadow-md disabled:opacity-50 text-sm"
+            >
+              {subiendoFoto ? '…' : '📷'}
+            </button>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{currentUser?.nombre} {currentUser?.apellidos}</p>
+            <p className="text-sm text-gray-500">{currentUser?.email}</p>
+          </div>
+        </div>
       </div>
 
       {/* Alerta de cambios pendientes */}

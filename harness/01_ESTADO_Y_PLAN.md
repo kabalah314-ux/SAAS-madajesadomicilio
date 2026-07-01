@@ -146,13 +146,12 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 
 ## FASE 10 — Pulido de perfil 🚧
 
-- [ ] **10.1 Foto de perfil en las 3 categorías.** Hoy `uploadAvatar` (en `AppContext.tsx`) ya
-  sube a Storage (bucket `avatars`) y guarda `profiles.avatar_url`, y funciona de verdad — pero
-  **solo está enganchado en `src/components/masajista/MiPerfil.tsx`**. Faltan:
-  - [ ] **Clienta:** añadir la subida de foto en `src/components/clienta/MisDatos.tsx` (reusar `uploadAvatar`, mismo patrón que MiPerfil: input file oculto + botón cámara + preview).
-  - [ ] **Admin:** el admin no tiene página de "Mi Perfil" (solo `Configuracion`, que es configuración del negocio, no personal). Decidir: ¿foto en `Configuracion` o crear una vista "Mi Perfil" nueva para admin? Reusar `uploadAvatar`.
-  - [ ] Mostrar el avatar ya subido en `Header.tsx` (hoy solo hay iniciales/nombre, ningún rol muestra la foto en la barra superior).
-  - [ ] Verificar en vivo los 3 roles (subir, ver preview, refrescar y que persista) — detalle completo en `09_TESTEO_MAESTRO.md`.
+- [x] **10.1 Foto de perfil en las 3 categorías — COMPLETO Y VERIFICADO** (2026-07-02). `uploadAvatar`
+  (ya existía, genérico) enganchado en `MisDatos.tsx` (clienta) y en una nueva tarjeta "Mi Perfil" al
+  principio de `Configuracion.tsx` (admin no tenía página propia). `Header.tsx` ya pintaba el avatar
+  para cualquier rol — solo faltaba la UI de subida. Verificado en vivo (local y producción) con
+  Playwright: sube foto real, se ve al instante en la página y en el Header, persiste tras recargar.
+  Detalle en `09_TESTEO_MAESTRO.md · FC1`. Sin migraciones. Desplegado a Vercel.
 
 - [x] **10.2 Chat con el agente desde la cuenta de la clienta — COMPLETO Y VERIFICADO** (2026-07-02).
   Nueva vista "Asistente" (menú + tarjeta en Inicio); Edge Function `agente` amplía su autorización a

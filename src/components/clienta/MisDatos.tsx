@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save, User, Lock } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { TipoServicio } from '../../types';
@@ -6,13 +6,15 @@ import { CONSENTIMIENTO_SALUD_TEXTO, LEGAL_VERSION } from '../../legal';
 import LegalModal from '../LegalModal';
 
 export default function MisDatos() {
-  const { currentUser, updateClienta, changePassword, servicios, masajistas } = useApp();
+  const { currentUser, updateClienta, changePassword, servicios, masajistas, uploadAvatar } = useApp();
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [showPassModal, setShowPassModal] = useState(false);
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [passMsg, setPassMsg] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   if (!currentUser || currentUser.role !== 'clienta') return null;
 
@@ -87,6 +89,21 @@ export default function MisDatos() {
     }
   };
 
+  const onAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('La imagen supera los 5MB.'); return; }
+    setSubiendoFoto(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo subir la foto');
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     setPassMsg('');
     if (newPass.length < 6) { setPassMsg('La contraseña debe tener al menos 6 caracteres.'); return; }
@@ -115,6 +132,31 @@ export default function MisDatos() {
           <User size={20} />
           Datos Personales
         </h3>
+
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative">
+            {clienta.foto ? (
+              <img src={clienta.foto} alt={clienta.nombre} className="w-20 h-20 rounded-full object-cover" />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                <User size={28} className="text-gray-400" />
+              </div>
+            )}
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={onAvatarSelected} />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={subiendoFoto}
+              title="Cambiar foto"
+              className="absolute bottom-0 right-0 w-7 h-7 bg-teal-500 rounded-full flex items-center justify-center text-white hover:bg-teal-600 transition shadow-md disabled:opacity-50 text-sm"
+            >
+              {subiendoFoto ? '…' : '📷'}
+            </button>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">Foto de perfil</p>
+            <p className="text-sm text-gray-500">JPG o PNG, máximo 5MB</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

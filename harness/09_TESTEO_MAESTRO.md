@@ -246,7 +246,7 @@ email) — solo se notificaba a la masajista y al admin. Además pidió que el e
 
 > **✅ TODA LA GUÍA EN VERDE:** FA1–FA9 y FB1–FB8 verificados en vivo contra el código actual. FA2 12/12, clásicos 16/16, agente 9/9. Bugs cazados y arreglados en las 3 rondas. Frontend desplegado a Vercel y verificado en producción.
 
-### Pendiente de construir · FC1 — Foto de perfil en las 3 categorías (2026-07-02, pedido por el usuario)
+### FC1 — Foto de perfil en las 3 categorías (2026-07-02) · 🟢 CONSTRUIDO Y VALIDADO
 Hoy `uploadAvatar` (AppContext, sube a Storage bucket `avatars` + guarda `profiles.avatar_url`) **solo
 está enganchado en la masajista** (`MiPerfil.tsx`, verificado en vivo en sesiones anteriores). Falta
 en clienta y admin. Tarea en `01_ESTADO_Y_PLAN.md` · Fase 10.1.
@@ -254,9 +254,16 @@ en clienta y admin. Tarea en `01_ESTADO_Y_PLAN.md` · Fase 10.1.
 | # | Sección | Debe cumplir | Estado |
 |---|---------|--------------|--------|
 | P1 | Masajista | Sube foto desde `MiPerfil`, se guarda y persiste | ✅ (ya hecho, verificado en sesión anterior) |
-| P2 | Clienta | Puede subir/cambiar su foto de perfil desde `MisDatos` | ⬜ pendiente de construir |
-| P3 | Admin | Puede subir/cambiar su foto de perfil (no hay página "Mi Perfil" de admin hoy — decidir dónde) | ⬜ pendiente de construir |
-| P4 | Transversal | El avatar subido se ve reflejado en `Header.tsx` (barra superior) para los 3 roles | ⬜ pendiente (hoy ningún rol muestra foto ahí) |
+| P2 | Clienta | Puede subir/cambiar su foto de perfil desde `MisDatos` | ✅ tarjeta "Foto de perfil" en Datos Personales |
+| P3 | Admin | Puede subir/cambiar su foto de perfil | ✅ tarjeta "Mi Perfil" añadida al principio de `Configuracion.tsx` (el admin no tenía página propia; se decidió integrarla ahí en vez de crear una vista nueva) |
+| P4 | Transversal | El avatar subido se ve reflejado en `Header.tsx` (barra superior) para los 3 roles | ✅ **ya estaba cableado** (`currentUser.foto` se mapea de `profiles.avatar_url` en la carga de sesión para cualquier rol, `Header.tsx:147` ya lo pintaba) — solo faltaba que hubiera algo que subir |
+
+**Cómo se construyó:** `uploadAvatar` (AppContext, ya existía y es genérico) se enganchó en `MisDatos.tsx`
+(clienta) y `Configuracion.tsx` (admin) con el mismo patrón visual que ya usaba la masajista (círculo +
+botón cámara). Sin migraciones ni cambios de backend — la única pieza que faltaba era la UI de subida.
+**Verificado en vivo (local Y producción)** con Playwright (`pw_avatar.cjs`): sube una imagen real como
+clienta y como admin, aparece al instante en la propia página Y en el Header, y **persiste tras
+recargar** la página entera.
 
 ### FC2 — Chat con el agente DESDE la cuenta de la clienta (2026-07-02) · 🟢 CONSTRUIDO Y VALIDADO 16/16
 Hoy el agente (`supabase/functions/agente`) solo es invocable por **admin** (JWT) o por **webhook secret**
