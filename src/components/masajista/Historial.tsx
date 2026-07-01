@@ -6,7 +6,7 @@ import EmptyState from '../EmptyState';
 type FiltroPeriodo = 'mes_actual' | 'mes_anterior' | '3_meses' | 'personalizado';
 
 export default function Historial() {
-  const { currentUser, reservas, servicios, clientas, configuracion } = useApp();
+  const { currentUser, reservas, servicios, configuracion } = useApp();
   const pagoPct = 100 - configuracion.comision_plataforma_pct;
   const [filtro, setFiltro] = useState<FiltroPeriodo>('mes_actual');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -119,7 +119,6 @@ export default function Historial() {
             <tbody className="divide-y divide-gray-200">
               {reservasFiltradas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(reserva => {
                 const servicio = servicios.find(s => s.id === reserva.servicio_id);
-                const clienta = clientas.find(c => c.id === reserva.clienta_id);
                 const estadoPago = getEstadoPago(reserva.estado);
                 const IconEstado = estadoPago.icon;
                 const isExpanded = expandedRow === reserva.id;
@@ -147,7 +146,7 @@ export default function Historial() {
                         {servicio?.duracion_minutos} min
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {clienta?.nombre}
+                        {reserva.cliente_nombre || '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {reserva.precio_total}€
@@ -205,7 +204,6 @@ export default function Historial() {
       <div className="lg:hidden space-y-3">
         {reservasFiltradas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(reserva => {
           const servicio = servicios.find(s => s.id === reserva.servicio_id);
-          const clienta = clientas.find(c => c.id === reserva.clienta_id);
           const estadoPago = getEstadoPago(reserva.estado);
           const IconEstado = estadoPago.icon;
 
@@ -234,7 +232,7 @@ export default function Historial() {
                 </div>
                 <div>
                   <div className="text-gray-500">Cliente</div>
-                  <div className="font-medium text-gray-900">{clienta?.nombre}</div>
+                  <div className="font-medium text-gray-900">{reserva.cliente_nombre || '—'}</div>
                 </div>
                 <div>
                   <div className="text-gray-500">Precio total</div>

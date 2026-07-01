@@ -111,6 +111,10 @@ export interface Reserva {
   valoracion?: Valoracion;
   pago_estado?: 'pendiente' | 'pagado' | 'reembolsado' | 'fallido';
   creada_en: string; // ISO datetime
+  // Contacto del cliente (solo se rellena para la masajista en sus reservas
+  // asignadas; en solicitudes abiertas va vacío por privacidad). Ver B4.
+  cliente_nombre?: string;
+  cliente_telefono?: string;
 }
 
 export interface Valoracion {
@@ -151,8 +155,8 @@ export interface Transferencia {
   periodo_inicio: string; // ISO date
   periodo_fin: string; // ISO date
   sesiones: number;
-  importe_bruto: number;
-  importe_neto: number; // 60% del bruto
+  importe_bruto: number; // valor de las sesiones antes de comisión (reconstruido)
+  importe_neto: number;  // lo que cobra la masajista = precio - comisión (monto_eur)
   estado: TransferenciaEstado;
   fecha_transferencia?: string;
   referencia_bancaria?: string;
@@ -207,6 +211,8 @@ export interface AppContextType {
   updateTransferencia: (id: string, estado: TransferenciaEstado, referencia?: string) => Promise<void>;
   cerrarCiclo: (fechaInicio: string, fechaFin: string) => Promise<any>;
   createMasajista: (payload: { email: string; password: string; full_name: string; phone?: string }) => Promise<any>;
+  inviteMasajista: (email: string, full_name: string) => Promise<{ success: boolean; email_sent: boolean; email_error: string | null; action_link: string | null }>;
+  promoteToAdmin: (userId: string) => Promise<any>;
   uploadDocumento: (masajistaId: string, tipo: string, file: File) => Promise<void>;
   getDocumentoUrl: (storagePath: string) => Promise<string>;
   uploadAvatar: (file: File) => Promise<void>;
@@ -221,6 +227,7 @@ export interface AppContextType {
   cancelarReservaPorClienta: (reservaId: string) => void;
   updateDocumento: (masajistaId: string, documentoId: string, data: Partial<Documento>) => void;
   verificarDocumento: (masajistaId: string, documentoId: string, adminId: string) => void;
+  verificarMasajista: (masajistaId: string) => Promise<void>;
   createNotificacion: (data: Omit<Notificacion, 'id'>) => void;
   marcarNotificacionLeida: (id: string) => void;
   marcarTodasNotificacionesLeidas: (usuarioId: string) => void;

@@ -164,6 +164,21 @@ supabase/
 
 ---
 
+## 6.5 🤖 El Agente conversacional (en diseño)
+
+Próxima gran pieza: un **agente** que atiende a clientes (primero por texto/test, luego
+**WhatsApp** y **teléfono**), resuelve todo (reservar / consultar cita / info / recado) y
+**guarda toda la conversación** para que el admin la consulte (nueva sección **"Agente"**)
+y para análisis del negocio. Identifica por **número de teléfono** y da de alta a clientes
+nuevos recogiendo datos poco a poco. El cerebro usará **OpenRouter** (modelos baratos,
+API compatible con OpenAI).
+
+> **Plan completo y decisiones en [`harness/08_AGENTE.md`](harness/08_AGENTE.md).** No se
+> pica código del agente hasta cerrar ese plan. La base de datos (tablas de conversaciones
+> y mensajes) ya está creada (migración `..._15_agente.sql`).
+
+---
+
 ## 7. Mapa de documentos (qué es cada `.md`)
 
 | Archivo | Para qué | Vigencia |

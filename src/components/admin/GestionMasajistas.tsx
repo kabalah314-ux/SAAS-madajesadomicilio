@@ -4,7 +4,7 @@ import { useApp } from '../../AppContext';
 import { Masajista, TipoServicio, Documento } from '../../types';
 
 export default function GestionMasajistas() {
-  const { masajistas, updateMasajista, createMasajista, verificarDocumento, currentUser, reservas, transferencias } = useApp();
+  const { masajistas, updateMasajista, createMasajista, verificarDocumento, verificarMasajista, getDocumentoUrl, currentUser, reservas, transferencias } = useApp();
   const [busy, setBusy] = useState(false);
   const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
   const [showDrawer, setShowDrawer] = useState<Masajista | null>(null);
@@ -117,9 +117,33 @@ export default function GestionMasajistas() {
     updateMasajista(id, { activo: !activo });
   };
 
-  const handleVerificarDoc = (masajistaId: string, docId: string) => {
-    if (currentUser) {
-      verificarDocumento(masajistaId, docId, currentUser.id);
+  const handleVerificarDoc = async (masajistaId: string, docId: string) => {
+    if (!currentUser) return;
+    try {
+      await verificarDocumento(masajistaId, docId, currentUser.id);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo verificar el documento');
+    }
+  };
+
+  const handleVerDoc = async (storagePath?: string) => {
+    if (!storagePath) { alert('Este documento no tiene archivo subido.'); return; }
+    try {
+      const url = await getDocumentoUrl(storagePath);
+      window.open(url, '_blank', 'noopener');
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo abrir el documento');
+    }
+  };
+
+  const handleVerificarMasajista = async (masajistaId: string) => {
+    setBusy(true);
+    try {
+      await verificarMasajista(masajistaId);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo verificar la masajista');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -439,7 +463,9 @@ export default function GestionMasajistas() {
 
       {/* Drawer de perfil detallado */}
       {showDrawer && (() => {
-        const masajista = showDrawer;
+        // Leer la versión viva del array para que los cambios (verificar doc /
+        // verificar masajista) se reflejen en el drawer sin reabrirlo.
+        const masajista = masajistas.find(m => m.id === showDrawer.id) || showDrawer;
         const reservasMasajista = reservas.filter(r => r.masajista_id === masajista.id);
         const transferenciasMasajista = transferencias.filter(t => t.masajista_id === masajista.id);
 
@@ -471,6 +497,16 @@ export default function GestionMasajistas() {
                         <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getEstadoBadge(masajista).class}`}>
                           {getEstadoBadge(masajista).label}
                         </span>
+                      )}
+                      {!masajista.documentacion_ok && (
+                        <button
+                          onClick={() => handleVerificarMasajista(masajista.id)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 transition disabled:opacity-50"
+                        >
+                          <UserCheck size={14} />
+                          {busy ? 'Verificando...' : 'Verificar masajista'}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -528,6 +564,11 @@ export default function GestionMasajistas() {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-3">Documentación</h4>
                   <div className="space-y-2">
+                    {masajista.documentos.length === 0 && (
+                      <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
+                        La masajista aún no ha subido documentos.
+                      </p>
+                    )}
                     {masajista.documentos.map(doc => {
                       const getDocIcon = (tipo: string) => {
                         if (tipo === 'autonoma') return '📄';
@@ -550,15 +591,26 @@ export default function GestionMasajistas() {
                               </div>
                             </div>
                           </div>
-                          {doc.estado === 'pendiente_revision' && (
-                            <button
-                              onClick={() => handleVerificarDoc(masajista.id, doc.id)}
-                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-1"
-                            >
-                              <Check size={16} />
-                              Verificar
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {doc.url && (
+                              <button
+                                onClick={() => handleVerDoc(doc.url)}
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium flex items-center gap-1"
+                              >
+                                <Eye size={16} />
+                                Ver
+                              </button>
+                            )}
+                            {doc.estado === 'pendiente_revision' && (
+                              <button
+                                onClick={() => handleVerificarDoc(masajista.id, doc.id)}
+                                className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-1"
+                              >
+                                <Check size={16} />
+                                Verificar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { AppProvider, useApp } from './AppContext';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Login';
+import SetPassword from './components/SetPassword';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 
@@ -22,15 +24,23 @@ import MisReservas from './components/clienta/MisReservas';
 import Dashboard from './components/admin/Dashboard';
 import GestionReservas from './components/admin/GestionReservas';
 import GestionMasajistas from './components/admin/GestionMasajistas';
+import GestionAccesos from './components/admin/GestionAccesos';
 import GestionClientas from './components/admin/GestionClientas';
 import GestionServicios from './components/admin/GestionServicios';
 import Configuracion from './components/admin/Configuracion';
 import Finanzas from './components/admin/Finanzas';
 import GestionTransferencias from './components/admin/GestionTransferencias';
+import Agente from './components/admin/Agente';
 
 function AppContent() {
   const { currentUser, currentView, navigate } = useApp();
   const { loading } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Enlace de invitación (masajista) o de recuperación → pantalla para fijar contraseña.
+  if (new URLSearchParams(window.location.search).get('setpw') === '1') {
+    return <SetPassword />;
+  }
 
   if (loading) {
     return (
@@ -81,8 +91,10 @@ function AppContent() {
         case 'dashboard': return <Dashboard />;
         case 'reservas': return <GestionReservas />;
         case 'masajistas': return <GestionMasajistas />;
+        case 'accesos': return <GestionAccesos />;
         case 'clientas': return <GestionClientas />;
         case 'servicios': return <GestionServicios />;
+        case 'agente': return <Agente />;
         case 'finanzas': return <Finanzas />;
         case 'transferencias': return <GestionTransferencias />;
         case 'configuracion': return <Configuracion />;
@@ -95,10 +107,15 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header onMenuClick={() => setMobileMenuOpen(true)} />
       <div className="flex">
-        <Sidebar currentView={currentView} setCurrentView={navigate} />
-        <main className="flex-1 p-6">
+        <Sidebar
+          currentView={currentView}
+          setCurrentView={navigate}
+          mobileOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
+        <main className="flex-1 p-4 sm:p-6 min-w-0">
           {renderView()}
         </main>
       </div>

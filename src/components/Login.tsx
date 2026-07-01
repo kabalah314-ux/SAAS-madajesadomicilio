@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
+import { LEGAL_VERSION } from '../legal';
+import LegalModal from './LegalModal';
 
 export default function Login() {
   const { signIn, signUp } = useAuth();
@@ -9,10 +12,12 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'cliente' | 'masajista'>('cliente');
+  const role = 'cliente' as const; // registro público = solo clientes; masajistas por invitación
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [legalModal, setLegalModal] = useState<'terminos' | 'privacidad' | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,12 +32,37 @@ export default function Login() {
     }
   };
 
+  const handleResetPassword = async () => {
+    setError('');
+    setSuccessMsg('');
+    if (!email) { setError('Escribe tu email arriba y vuelve a pulsar para recibir el enlace.'); return; }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/?setpw=1`,
+      });
+      if (error) throw error;
+      setSuccessMsg('Si el email existe, te hemos enviado un enlace para restablecer la contraseña.');
+    } catch (err: any) {
+      setError(err.message || 'No se pudo enviar el email de recuperación');
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!aceptaTerminos) {
+      setError('Debes aceptar los Términos y la Política de Privacidad para crear la cuenta.');
+      return;
+    }
     setLoading(true);
     try {
-      await signUp(email, password, { full_name: fullName, role, phone: phone || undefined });
+      await signUp(email, password, {
+        full_name: fullName,
+        role,
+        phone: phone || undefined,
+        acepto_terminos: true,
+        terminos_version: LEGAL_VERSION,
+      });
       setSuccessMsg('Cuenta creada. Revisa tu email para confirmar o inicia sesion directamente.');
       setMode('login');
     } catch (err: any) {
@@ -97,6 +127,12 @@ export default function Login() {
                 {loading ? 'Entrando...' : 'Iniciar Sesion'}
               </button>
 
+              <p className="text-center text-sm">
+                <button type="button" onClick={handleResetPassword} className="text-gray-500 hover:text-teal-600 hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </p>
+
               <p className="text-center text-sm text-gray-600">
                 No tienes cuenta?{' '}
                 <button type="button" onClick={() => { setMode('register'); setError(''); }} className="text-teal-600 font-medium hover:underline">
@@ -154,29 +190,31 @@ export default function Login() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de cuenta</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRole('cliente')}
-                    className={`px-3 py-2 rounded-lg border-2 text-xs font-medium transition ${
-                      role === 'cliente' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    🧖‍♀️ Cliente
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('masajista')}
-                    className={`px-3 py-2 rounded-lg border-2 text-xs font-medium transition ${
-                      role === 'masajista' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    💆‍♀️ Masajista
-                  </button>
-                </div>
+              {/* El registro público es SOLO para clientes. Los masajistas entran por
+                  invitación del administrador (enlace por email). */}
+              <div className="bg-teal-50 border border-teal-100 text-teal-700 text-xs rounded-lg px-3 py-2">
+                🧖‍♀️ Estás creando una cuenta de <strong>Cliente</strong>. ¿Eres masajista?
+                El equipo te da de alta por invitación.
               </div>
+
+              <label className="flex items-start gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={aceptaTerminos}
+                  onChange={(e) => setAceptaTerminos(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-teal-600"
+                />
+                <span>
+                  He leído y acepto los{' '}
+                  <button type="button" onClick={() => setLegalModal('terminos')} className="text-teal-600 font-medium hover:underline">
+                    Términos
+                  </button>{' '}
+                  y la{' '}
+                  <button type="button" onClick={() => setLegalModal('privacidad')} className="text-teal-600 font-medium hover:underline">
+                    Política de Privacidad
+                  </button>.
+                </span>
+              </label>
 
               {error && (
                 <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
@@ -184,7 +222,7 @@ export default function Login() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !aceptaTerminos}
                 className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-teal-600 hover:to-emerald-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <UserPlus size={20} />
@@ -204,7 +242,14 @@ export default function Login() {
         <p className="text-center text-sm text-gray-500 mt-6">
           MassFlow - Masajes a domicilio
         </p>
+        <p className="text-center text-xs text-gray-400 mt-2 space-x-2">
+          <button type="button" onClick={() => setLegalModal('terminos')} className="hover:text-teal-600 hover:underline">Términos</button>
+          <span>·</span>
+          <button type="button" onClick={() => setLegalModal('privacidad')} className="hover:text-teal-600 hover:underline">Privacidad</button>
+        </p>
       </div>
+
+      {legalModal && <LegalModal tipo={legalModal} onClose={() => setLegalModal(null)} />}
     </div>
   );
 }

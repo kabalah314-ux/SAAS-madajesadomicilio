@@ -13,6 +13,12 @@ export default function GestionTransferencias() {
   const esPrimeraQuincena = hoy.getDate() <= 15;
   const inicioQuincena = new Date(hoy.getFullYear(), hoy.getMonth(), esPrimeraQuincena ? 1 : 16);
   const finQuincena = new Date(hoy.getFullYear(), hoy.getMonth(), esPrimeraQuincena ? 15 : new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate());
+  // B12: las fechas de ciclo son 'YYYY-MM-DD'. Comparar con Date + toISOString() desplaza el día
+  // por la zona horaria (una transferencia con fin el día 15 quedaba invisible). Se usan cadenas
+  // locales 'YYYY-MM-DD' (orden lexicográfico = orden de fecha para ISO) sin pasar por UTC.
+  const dstr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const inicioQuincenaStr = dstr(inicioQuincena);
+  const finQuincenaStr = dstr(finQuincena);
 
   const formatPeriodo = (inicio: string, fin: string) => {
     const inicioDate = new Date(inicio);
@@ -56,8 +62,8 @@ export default function GestionTransferencias() {
     if (!confirm('¿Cerrar el ciclo actual y generar las transferencias de las sesiones completadas?')) return;
     setCerrando(true);
     try {
-      const ini = inicioQuincena.toISOString().split('T')[0];
-      const fin = finQuincena.toISOString().split('T')[0];
+      const ini = inicioQuincenaStr;
+      const fin = finQuincenaStr;
       const res = await cerrarCiclo(ini, fin);
       alert(`Ciclo cerrado. Transferencias generadas para ${res?.reservas_processed ?? 0} sesiones.`);
     } catch (e: any) {
@@ -69,14 +75,14 @@ export default function GestionTransferencias() {
 
   // Agrupar por ciclo actual
   const transferenciasActuales = transferencias.filter(t => {
-    const periodoFin = new Date(t.periodo_fin);
-    return periodoFin >= inicioQuincena && periodoFin <= finQuincena;
+    const periodoFin = (t.periodo_fin || '').slice(0, 10);
+    return periodoFin >= inicioQuincenaStr && periodoFin <= finQuincenaStr;
   });
 
   const transferenciasHistoricas = transferencias.filter(t => {
-    const periodoFin = new Date(t.periodo_fin);
-    return periodoFin < inicioQuincena;
-  }).sort((a, b) => new Date(b.periodo_fin).getTime() - new Date(a.periodo_fin).getTime());
+    const periodoFin = (t.periodo_fin || '').slice(0, 10);
+    return periodoFin && periodoFin < inicioQuincenaStr;
+  }).sort((a, b) => (b.periodo_fin || '').localeCompare(a.periodo_fin || ''));
 
   const totalPendiente = transferenciasActuales
     .filter(t => t.estado === 'pendiente')

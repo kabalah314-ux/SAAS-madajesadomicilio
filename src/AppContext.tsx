@@ -157,7 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function loadAllMasajistas() {
     const { data } = await supabase
       .from('masajistas')
-      .select('*, profiles(full_name, email, phone, avatar_url, is_active)');
+      .select('*, profiles(full_name, email, phone, avatar_url, is_active), documentos(*)');
     if (data) {
       setMasajistas(data.map(m => mapMasajista(m)));
     }
@@ -183,10 +183,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function loadReservasMasajista(masajistaId: string) {
+    // Perfil de la masajista para filtrar solicitudes por zona/especialidad.
+    const { data: perfil } = await supabase
+      .from('masajistas')
+      .select('zonas_cobertura, especialidades')
+      .eq('id', masajistaId)
+      .single();
+    const zonas = (perfil?.zonas_cobertura || []).map((z: string) => z.toLowerCase().trim()).filter(Boolean);
+    const esp = (perfil?.especialidades || []).map((e: string) => e.toLowerCase().trim()).filter(Boolean);
+
     // 1) Reservas asignadas a esta masajista (cualquier estado) → calendario, historial, cobros.
+    //    Embebemos el contacto del cliente (nombre/teléfono) — la RLS solo lo
+    //    permite para clientes de SUS reservas asignadas (B4).
     const { data: asignadas } = await supabase
       .from('reservas')
-      .select('*, servicios(nombre), valoraciones(*)')
+      .select('*, servicios(nombre), valoraciones(*), clientes(profiles(full_name, phone))')
       .eq('masajista_id', masajistaId)
       .order('fecha', { ascending: false });
 
@@ -199,9 +210,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .eq('estado', 'pendiente')
       .order('created_at', { ascending: false });
 
+    // 2b) Filtrar las solicitudes abiertas a las que esta masajista puede servir:
+    //     que el servicio encaje con sus especialidades Y la zona con su cobertura.
+    //     Si no tiene especialidades/zonas configuradas, no se filtra por ese criterio.
+    const matchesPerfil = (r: any): boolean => {
+      const servName = (r.servicios?.nombre || '').toLowerCase();
+      const matchEsp = esp.length === 0 || esp.some((e: string) => servName.includes(e));
+      const loc = `${r.barrio || ''} ${r.ciudad || ''} ${r.direccion_servicio || ''} ${r.codigo_postal || ''}`.toLowerCase();
+      const matchZona = zonas.length === 0 || zonas.some((z: string) => loc.includes(z));
+      return matchEsp && matchZona;
+    };
+    const abiertasFiltradas = (abiertas || []).filter(matchesPerfil);
+
     // Combinar sin duplicados.
     const seen = new Set<string>();
-    const merged = [...(asignadas || []), ...(abiertas || [])].filter(r => {
+    const merged = [...(asignadas || []), ...abiertasFiltradas].filter(r => {
       if (seen.has(r.id)) return false;
       seen.add(r.id);
       return true;
@@ -333,7 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       tarifa_hora: undefined,
       iban: m.iban || undefined,
       documentacion_ok: m.is_verified,
-      documentos: [],
+      documentos: (m.documentos || []).map((d: any) => mapDocumento(d)),
       rating_promedio: Number(m.rating_promedio) || 0,
       total_sesiones: m.total_sesiones || 0,
       valoraciones: [],
@@ -404,10 +427,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'expirada': 'cancelada_clienta',
     };
     const valRow = Array.isArray(r.valoraciones) ? r.valoraciones[0] : r.valoraciones;
+    // Contacto del cliente: solo viene embebido cuando la consulta lo pide
+    // (reservas asignadas de la masajista). Ver loadReservasMasajista / B4.
+    const cliRow = Array.isArray(r.clientes) ? r.clientes[0] : r.clientes;
+    const cliProfile = cliRow?.profiles
+      ? (Array.isArray(cliRow.profiles) ? cliRow.profiles[0] : cliRow.profiles)
+      : undefined;
     return {
       id: r.id,
       codigo: r.codigo,
       clienta_id: r.cliente_id,
+      cliente_nombre: cliProfile?.full_name || undefined,
+      cliente_telefono: cliProfile?.phone || undefined,
       masajista_id: r.masajista_id || undefined,
       servicio_id: r.servicio_id,
       fecha: r.fecha,
@@ -418,7 +449,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         numero: '',
         ciudad: r.ciudad || '',
         codigo_postal: r.codigo_postal || '',
-        barrio: '',
+        barrio: r.barrio || '',
       },
       estado: (estadoMap[r.estado] || r.estado) as any,
       precio_total: Number(r.precio_total),
@@ -438,14 +469,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'confirmada': 'confirmada',
       'fallida': 'error',
     };
+    // B3: monto_eur es el NETO que cobra la masajista (precio - comisión). El bruto (valor
+    // de las sesiones antes de comisión) no se almacena en la transferencia, así que se
+    // reconstruye con la comisión global de configuración. Antes bruto==neto (engañoso).
+    const neto = Number(t.monto_eur);
+    const comision = configuracion.comision_plataforma_pct;
+    const factorNeto = comision > 0 && comision < 100 ? 1 - comision / 100 : 1;
     return {
       id: t.id,
       masajista_id: t.masajista_id,
       periodo_inicio: t.ciclos_pago?.fecha_inicio || '',
       periodo_fin: t.ciclos_pago?.fecha_fin || '',
       sesiones: t.num_sesiones,
-      importe_bruto: Number(t.monto_eur),
-      importe_neto: Number(t.monto_eur),
+      importe_bruto: +(neto / factorNeto).toFixed(2),
+      importe_neto: neto,
       estado: (estadoMap[t.estado] || t.estado) as any,
       fecha_transferencia: t.enviada_en || undefined,
       referencia_bancaria: t.referencia || undefined,
@@ -494,7 +531,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.telefono !== undefined) profileData.phone = data.telefono || null;
     if (data.foto !== undefined) profileData.avatar_url = data.foto || null;
     if (Object.keys(profileData).length > 0) {
-      await supabase.from('profiles').update(profileData).eq('id', id);
+      const { error } = await supabase.from('profiles').update(profileData).eq('id', id);
+      if (error) throw error;
     }
 
     // Datos de la tabla 'masajistas'
@@ -505,7 +543,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.iban !== undefined) supaData.iban = data.iban;
     if ((data as any).activo !== undefined) supaData.is_suspended = !(data as any).activo; // suspender/activar
     if (Object.keys(supaData).length > 0) {
-      await supabase.from('masajistas').update(supaData).eq('id', id);
+      const { error } = await supabase.from('masajistas').update(supaData).eq('id', id);
+      if (error) throw error;
     }
 
     if (currentUser?.id === id) {
@@ -527,7 +566,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (data.telefono !== undefined) profileData.phone = data.telefono || null;
     if (Object.keys(profileData).length > 0) {
-      await supabase.from('profiles').update(profileData).eq('id', id);
+      const { error } = await supabase.from('profiles').update(profileData).eq('id', id);
+      if (error) throw error;
     }
 
     // 2) Datos de la tabla 'clientes' (columnas + preferencias jsonb)
@@ -539,6 +579,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (data.bloqueada !== undefined) supaData.is_blocked = data.bloqueada;
     if (data.notas_internas_admin !== undefined) supaData.internal_notes = data.notas_internas_admin;
+    // Consentimiento de datos de salud (Art. 9 RGPD) — B6
+    if ((data as any).consentimiento_salud_en !== undefined) {
+      supaData.consentimiento_salud_en = (data as any).consentimiento_salud_en;
+      supaData.consentimiento_salud_version = (data as any).consentimiento_salud_version || null;
+    }
 
     const prefKeys: (keyof Clienta)[] = ['servicio_favorito', 'masajista_preferida', 'notas_especiales', 'intensidad_preferida'];
     const touchesPrefs = data.direccion_habitual !== undefined || prefKeys.some(k => (data as any)[k] !== undefined);
@@ -552,7 +597,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
     if (Object.keys(supaData).length > 0) {
-      await supabase.from('clientes').update(supaData).eq('id', id);
+      const { error } = await supabase.from('clientes').update(supaData).eq('id', id);
+      if (error) throw error;
     }
 
     // 3) Estado local
@@ -669,6 +715,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return data;
   };
 
+  // Invita a un masajista por email (admin-actions → genera enlace + lo envía por Resend).
+  const inviteMasajista = async (email: string, full_name: string) => {
+    const { data, error } = await supabase.functions.invoke('admin-actions', {
+      body: { action: 'invite_masajista', payload: { email, full_name, redirect_to: `${window.location.origin}/?setpw=1` } },
+    });
+    if (error) throw error;
+    return data as { success: boolean; email_sent: boolean; email_error: string | null; action_link: string | null };
+  };
+
+  // Da rol de admin a una cuenta EXISTENTE (admin-actions → update_role).
+  const promoteToAdmin = async (userId: string) => {
+    const { data, error } = await supabase.functions.invoke('admin-actions', {
+      body: { action: 'update_role', payload: { user_id: userId, new_role: 'admin' } },
+    });
+    if (error) throw error;
+    await loadAllMasajistas();
+    return data;
+  };
+
   const createReserva = async (data: Omit<Reserva, 'id' | 'codigo' | 'creada_en'>): Promise<Reserva> => {
     // Duración en minutos a partir de hora_inicio/hora_fin
     const [h, m] = (data.hora_inicio || '00:00').split(':').map(Number);
@@ -690,6 +755,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       duracion_min: duracion,
       direccion_servicio: calle,
       ciudad: data.direccion?.ciudad || 'Madrid',
+      barrio: data.direccion?.barrio || null,
       codigo_postal: data.direccion?.codigo_postal || '',
       notas_cliente: data.notas_clienta || null,
       precio_total: data.precio_total,
@@ -729,7 +795,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (supaData.estado === 'completada') supaData.completada_en = new Date().toISOString();
 
     if (Object.keys(supaData).length > 0) {
-      await supabase.from('reservas').update(supaData).eq('id', id);
+      const { error } = await supabase.from('reservas').update(supaData).eq('id', id);
+      if (error) throw error; // no fingir éxito: que la UI lo sepa
     }
 
     setReservas(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
@@ -738,19 +805,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createValoracion = async (data: Omit<Valoracion, 'id'>) => {
     const newVal: Valoracion = { ...data, id: `val-${Date.now()}` };
 
-    await supabase.from('valoraciones').insert({
+    const { error } = await supabase.from('valoraciones').insert({
       reserva_id: data.reserva_id,
       cliente_id: data.clienta_id,
       masajista_id: data.masajista_id,
       puntuacion: data.estrellas,
       comentario: data.comentario || null,
     });
+    if (error) throw error;
 
     setValoraciones(prev => [...prev, newVal]);
   };
 
+  // Claim ATÓMICO de una solicitud abierta: solo gana la primera masajista.
+  // El UPDATE exige estado='pendiente' y masajista_id IS NULL; si otra ya la
+  // tomó, no afecta filas → avisamos en vez de fingir que se aceptó.
   const aceptarSolicitud = async (reservaId: string, masajistaId: string) => {
-    await updateReserva(reservaId, { estado: 'confirmada', masajista_id: masajistaId });
+    const { data, error } = await supabase
+      .from('reservas')
+      .update({ estado: 'aceptada', masajista_id: masajistaId, aceptada_en: new Date().toISOString() })
+      .eq('id', reservaId)
+      .eq('estado', 'pendiente')
+      .is('masajista_id', null)
+      .select('*, servicios(nombre), valoraciones(*), clientes(profiles(full_name, phone))');
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('Esta solicitud ya fue tomada por otra masajista o ya no está disponible.');
+    }
+    const mapped = mapReserva(data[0]);
+    setReservas(prev => prev.map(r => r.id === reservaId ? mapped : r));
   };
 
   const rechazarSolicitud = async (reservaId: string, motivo: string) => {
@@ -778,17 +861,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verificarDocumento = async (masajistaId: string, documentoId: string, adminId: string) => {
-    await supabase.from('documentos').update({
+    const { error } = await supabase.from('documentos').update({
       estado: 'verificado',
       reviewed_at: new Date().toISOString(),
       reviewed_by: adminId,
     }).eq('id', documentoId);
+    if (error) throw error;
 
     updateDocumento(masajistaId, documentoId, {
       estado: 'verificado',
       verificado_por: adminId,
       fecha_verificacion: new Date().toISOString().split('T')[0]
     });
+  };
+
+  // Aprueba a la masajista (is_verified=true) para que pueda aparecer en las
+  // reservas. El admin puede hacerlo directamente: el trigger
+  // masajistas_freeze_sensitive solo bloquea a NO-admin (ver migración _08).
+  const verificarMasajista = async (masajistaId: string) => {
+    const { error } = await supabase
+      .from('masajistas')
+      .update({ is_verified: true })
+      .eq('id', masajistaId);
+    if (error) throw error;
+    await loadAllMasajistas();
   };
 
   // Sube un documento al bucket 'documentos' y registra/actualiza su fila.
@@ -889,6 +985,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTransferencia,
     cerrarCiclo,
     createMasajista,
+    inviteMasajista,
+    promoteToAdmin,
     uploadDocumento,
     getDocumentoUrl,
     uploadAvatar,
@@ -903,6 +1001,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cancelarReservaPorClienta,
     updateDocumento,
     verificarDocumento,
+    verificarMasajista,
     createNotificacion,
     marcarNotificacionLeida,
     marcarTodasNotificacionesLeidas,

@@ -1,7 +1,7 @@
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Users, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
   UserCircle,
   DollarSign,
   ClipboardList,
@@ -11,16 +11,22 @@ import {
   Inbox,
   History,
   User,
-  Home
+  Home,
+  Bot,
+  UserPlus,
+  X
 } from 'lucide-react';
 import { useApp } from '../AppContext';
 
 interface SidebarProps {
   currentView: string;
   setCurrentView: (view: string) => void;
+  // Estado del drawer móvil (en escritorio el sidebar es fijo y se ignora).
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
+export default function Sidebar({ currentView, setCurrentView, mobileOpen = false, onClose }: SidebarProps) {
   const { currentUser, reservas } = useApp();
 
   if (!currentUser) return null;
@@ -32,8 +38,10 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'reservas', label: 'Reservas', icon: Calendar, badge: pendientes > 0 ? pendientes : undefined },
         { id: 'masajistas', label: 'Masajistas', icon: Users },
+        { id: 'accesos', label: 'Accesos', icon: UserPlus },
         { id: 'clientas', label: 'Clientas', icon: UserCircle },
         { id: 'servicios', label: 'Servicios', icon: ClipboardList },
+        { id: 'agente', label: 'Agente', icon: Bot },
         { id: 'finanzas', label: 'Finanzas', icon: DollarSign },
         { id: 'transferencias', label: 'Transferencias', icon: CreditCard },
         { id: 'configuracion', label: 'Configuración', icon: Settings }
@@ -41,10 +49,10 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
     }
 
     if (currentUser.role === 'masajista') {
-      const solicitudes = reservas.filter(r => 
+      const solicitudes = reservas.filter(r =>
         r.estado === 'pendiente_asignacion'
       ).length;
-      
+
       const docsIncompletos = (currentUser as any).documentos?.some((d: any) => d.estado !== 'verificado');
 
       return [
@@ -72,38 +80,77 @@ export default function Sidebar({ currentView, setCurrentView }: SidebarProps) {
 
   const menuItems = getMenuItems();
 
+  const handleSelect = (id: string) => {
+    setCurrentView(id);
+    onClose?.(); // en móvil, cerrar el drawer al navegar
+  };
+
+  const navList = (
+    <nav className="p-4 space-y-1">
+      {menuItems.map(item => {
+        const Icon = item.icon;
+        const isActive = currentView === item.id;
+
+        return (
+          <button
+            key={item.id}
+            onClick={() => handleSelect(item.id)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+              isActive
+                ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Icon size={20} />
+            <span className="font-medium flex-1 text-left">{item.label}</span>
+            {item.badge && (
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                isActive
+                  ? 'bg-white/20 text-white'
+                  : 'bg-red-500 text-white'
+              }`}>
+                {item.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] sticky top-16">
-      <nav className="p-4 space-y-1">
-        {menuItems.map(item => {
-          const Icon = item.icon;
-          const isActive = currentView === item.id;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentView(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                isActive 
-                  ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <Icon size={20} />
-              <span className="font-medium flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                  isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-red-500 text-white'
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-    </aside>
+    <>
+      {/* Escritorio: columna fija */}
+      <aside className="hidden lg:block w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] sticky top-16">
+        {navList}
+      </aside>
+
+      {/* Móvil: drawer deslizante + backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[80%] bg-white border-r border-gray-200 shadow-xl transform transition-transform duration-200 ease-in-out lg:hidden ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
+              <span className="text-lg">💆‍♀️</span>
+            </div>
+            <span className="font-bold text-gray-900">MassFlow</span>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Cerrar menú">
+            <X size={20} className="text-gray-600" />
+          </button>
+        </div>
+        {navList}
+      </aside>
+    </>
   );
 }

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Save, User, Lock } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { TipoServicio } from '../../types';
+import { CONSENTIMIENTO_SALUD_TEXTO, LEGAL_VERSION } from '../../legal';
+import LegalModal from '../LegalModal';
 
 export default function MisDatos() {
   const { currentUser, updateClienta, changePassword, servicios, masajistas } = useApp();
@@ -32,6 +34,10 @@ export default function MisDatos() {
   const [masajistaFav, setMasajistaFav] = useState(clienta.masajista_preferida || '');
   const [notasEspeciales, setNotasEspeciales] = useState(clienta.notas_especiales || '');
   const [intensidad, setIntensidad] = useState(clienta.intensidad_preferida || 'media');
+  // Consentimiento de datos de salud (Art. 9 RGPD). Si ya tenía notas guardadas,
+  // se asume que consintió en su día (no le bloqueamos al editar).
+  const [consentSalud, setConsentSalud] = useState(!!clienta.notas_especiales);
+  const [legalModal, setLegalModal] = useState<'terminos' | 'privacidad' | null>(null);
 
   // Re-sincroniza el formulario cuando llegan los datos reales de la clienta.
   useEffect(() => {
@@ -43,14 +49,20 @@ export default function MisDatos() {
     setMasajistaFav(clienta.masajista_preferida || '');
     setNotasEspeciales(clienta.notas_especiales || '');
     setIntensidad(clienta.intensidad_preferida || 'media');
+    setConsentSalud(!!clienta.notas_especiales);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleSave = async () => {
+    // Si rellena datos de salud, exigir consentimiento explícito (Art. 9 RGPD).
+    if (notasEspeciales.trim() && !consentSalud) {
+      alert('Para guardar datos de salud debes marcar el consentimiento.');
+      return;
+    }
     setSaving(true);
     setSavedOk(false);
     try {
-      await updateClienta(clienta.id, {
+      const payload: any = {
         nombre,
         apellidos,
         telefono,
@@ -58,10 +70,18 @@ export default function MisDatos() {
         servicio_favorito: servicioFav as TipoServicio,
         masajista_preferida: masajistaFav,
         notas_especiales: notasEspeciales,
-        intensidad_preferida: intensidad as any
-      });
+        intensidad_preferida: intensidad as any,
+      };
+      // Registrar el consentimiento (con fecha y versión) si hay datos de salud.
+      if (notasEspeciales.trim() && consentSalud) {
+        payload.consentimiento_salud_en = new Date().toISOString();
+        payload.consentimiento_salud_version = LEGAL_VERSION;
+      }
+      await updateClienta(clienta.id, payload);
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 2500);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudieron guardar los cambios');
     } finally {
       setSaving(false);
     }
@@ -272,7 +292,7 @@ export default function MisDatos() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notas especiales para el equipo
+              Notas de salud para el equipo <span className="font-normal text-gray-400">(opcional)</span>
             </label>
             <textarea
               value={notasEspeciales}
@@ -281,9 +301,27 @@ export default function MisDatos() {
               placeholder="Alergias, lesiones, preferencias de presión, indicaciones especiales..."
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none resize-none"
             />
+            {notasEspeciales.trim() && (
+              <label className="flex items-start gap-2 mt-3 text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <input
+                  type="checkbox"
+                  checked={consentSalud}
+                  onChange={(e) => setConsentSalud(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-teal-600"
+                />
+                <span>
+                  {CONSENTIMIENTO_SALUD_TEXTO}{' '}
+                  <button type="button" onClick={() => setLegalModal('privacidad')} className="text-teal-600 font-medium hover:underline">
+                    Más información
+                  </button>
+                </span>
+              </label>
+            )}
           </div>
         </div>
       </div>
+
+      {legalModal && <LegalModal tipo={legalModal} onClose={() => setLegalModal(null)} />}
 
       {/* Seguridad */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

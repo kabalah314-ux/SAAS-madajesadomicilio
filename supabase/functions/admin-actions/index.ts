@@ -63,6 +63,54 @@ serve(async (req) => {
       return Response.json({ success: true });
     }
 
+    case "invite_masajista": {
+      // Invita a un masajista por email: crea el usuario (invitado, sin contraseña)
+      // y genera el enlace para que fije su contraseña; el enlace se envía por Resend
+      // (función send-email). El usuario nace con rol 'masajista' (metadata → trigger).
+      const { email, full_name, redirect_to } = payload;
+      if (!email) return Response.json({ error: "Falta el email" }, { status: 400 });
+      const redirectTo = redirect_to || "https://saas-madajesadomicilio.vercel.app/?setpw=1";
+      const { data: link, error } = await supabase.auth.admin.generateLink({
+        type: "invite",
+        email,
+        options: { data: { full_name: full_name ?? "", role: "masajista" }, redirectTo },
+      });
+      if (error) return Response.json({ error: error.message }, { status: 400 });
+      const actionLink = (link as any)?.properties?.action_link ?? null;
+
+      // Enviar el email de invitación vía la función send-email (Resend).
+      let email_sent = false;
+      let email_error: string | null = null;
+      try {
+        const html = `<!doctype html><html><body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif">
+          <div style="max-width:520px;margin:0 auto;padding:24px">
+            <div style="background:linear-gradient(135deg,#14b8a6,#059669);border-radius:16px;padding:20px;text-align:center">
+              <span style="font-size:28px">💆‍♀️</span>
+              <div style="color:#fff;font-weight:bold;font-size:20px;margin-top:4px">MassFlow</div>
+            </div>
+            <div style="background:#fff;border-radius:16px;padding:24px;margin-top:16px">
+              <h2 style="color:#111827;margin:0 0 8px">Te han invitado como masajista</h2>
+              <p style="color:#374151;line-height:1.6">Hola ${full_name ?? ""}, el equipo de MassFlow te invita a unirte como masajista. Pulsa el botón para crear tu contraseña y acceder a tu cuenta:</p>
+              <p style="text-align:center;margin:24px 0">
+                <a href="${actionLink}" style="background:#0d9488;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Crear mi cuenta</a>
+              </p>
+              <p style="color:#9ca3af;font-size:12px">Si el botón no funciona, copia y pega este enlace en tu navegador:<br>${actionLink}</p>
+            </div>
+          </div></body></html>`;
+        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-webhook-secret": Deno.env.get("WEBHOOK_SECRET") ?? "" },
+          body: JSON.stringify({ to: email, subject: "Invitación a MassFlow (masajista)", html }),
+        });
+        const j = await res.json().catch(() => ({}));
+        email_sent = !!(j as any).sent;
+        if (!email_sent) email_error = JSON.stringify(j);
+      } catch (e) {
+        email_error = String((e as Error).message ?? e);
+      }
+      return Response.json({ success: true, email_sent, email_error, action_link: actionLink });
+    }
+
     case "close_ciclo": {
       const { fecha_inicio, fecha_fin } = payload;
       // Create payment cycle

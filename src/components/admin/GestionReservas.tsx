@@ -221,13 +221,17 @@ export default function GestionReservas() {
                   {masajistas.filter(m => m.activo && m.documentacion_ok).map(masajista => {
                     // Zona de la reserva: barrio si existe, si no la ciudad.
                     const zonaReserva = (showAsignar.direccion.barrio || showAsignar.direccion.ciudad || '').toLowerCase();
-                    // Cubre la zona si no hay info de zona, no tiene zonas definidas, o coincide (fuzzy).
-                    const cubreLaZona = !zonaReserva
-                      || masajista.zonas_cobertura.length === 0
+                    // B2: si la reserva no trae barrio ni ciudad, la zona es DESCONOCIDA. No se puede
+                    // afirmar que la masajista la cubre → se avisa aparte (antes se ocultaba el aviso).
+                    const zonaDesconocida = !zonaReserva;
+                    // Cubre la zona si la masajista no tiene zonas definidas o coincide (fuzzy).
+                    const cubreLaZona = !zonaDesconocida && (
+                      masajista.zonas_cobertura.length === 0
                       || masajista.zonas_cobertura.some(z => {
                         const zz = z.toLowerCase();
                         return zz === zonaReserva || zz.includes(zonaReserva) || zonaReserva.includes(zz);
-                      });
+                      })
+                    );
 
                     return (
                       <button
@@ -254,11 +258,15 @@ export default function GestionReservas() {
                               <span className="text-gray-500">•</span>
                               <span className="text-gray-600">{masajista.total_sesiones} sesiones</span>
                             </div>
-                            {!cubreLaZona && (
+                            {zonaDesconocida ? (
                               <div className="text-xs text-amber-600 mt-1">
-                                ⚠️ Quizá no cubre {showAsignar.direccion.ciudad || 'la zona'} (puedes asignarla igualmente)
+                                ⚠️ La reserva no tiene zona (barrio/ciudad); verifica que cubre la dirección antes de asignar.
                               </div>
-                            )}
+                            ) : !cubreLaZona ? (
+                              <div className="text-xs text-amber-600 mt-1">
+                                ⚠️ Quizá no cubre {showAsignar.direccion.barrio || showAsignar.direccion.ciudad || 'la zona'} (puedes asignarla igualmente)
+                              </div>
+                            ) : null}
                           </div>
                           <div className="text-sm text-gray-600">
                             {Math.round(showAsignar.pago_masajista)}€ pago

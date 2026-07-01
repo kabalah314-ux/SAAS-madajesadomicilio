@@ -5,7 +5,7 @@ import { Reserva, Servicio } from '../../types';
 import EmptyState from '../EmptyState';
 
 export default function MiCalendario() {
-  const { currentUser, reservas, servicios, clientas, marcarReservaCompletada, navigate } = useApp();
+  const { currentUser, reservas, servicios, marcarReservaCompletada, navigate } = useApp();
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = esta semana
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
 
@@ -69,10 +69,14 @@ export default function MiCalendario() {
     return badges[estado] || { label: estado, class: 'bg-gray-100 text-gray-700' };
   };
 
-  const handleMarcarCompletada = () => {
+  const handleMarcarCompletada = async () => {
     if (selectedReserva) {
-      marcarReservaCompletada(selectedReserva.id);
-      setSelectedReserva(null);
+      try {
+        await marcarReservaCompletada(selectedReserva.id);
+        setSelectedReserva(null);
+      } catch (e: any) {
+        alert(e?.message || 'No se pudo marcar como completada');
+      }
     }
   };
 
@@ -166,7 +170,6 @@ export default function MiCalendario() {
               {weekDays.map((date, i) => {
                 const reserva = getReservaAtTime(date, hour);
                 const servicio = reserva ? servicios.find(s => s.id === reserva.servicio_id) : null;
-                const clienta = reserva ? clientas.find(c => c.id === reserva.clienta_id) : null;
 
                 return (
                   <div 
@@ -183,8 +186,8 @@ export default function MiCalendario() {
                           <span>{servicio.emoji}</span>
                           <span className="font-medium truncate">{servicio.nombre}</span>
                         </div>
-                        {clienta && (
-                          <div className="text-xs mt-1 truncate">{clienta.nombre}</div>
+                        {reserva.cliente_nombre && (
+                          <div className="text-xs mt-1 truncate">{reserva.cliente_nombre}</div>
                         )}
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] mt-1 ${getEstadoBadge(reserva.estado).class}`}>
                           {getEstadoBadge(reserva.estado).label}
@@ -218,8 +221,7 @@ export default function MiCalendario() {
               <div className="divide-y divide-gray-200">
                 {reservasDay.map(reserva => {
                   const servicio = servicios.find(s => s.id === reserva.servicio_id);
-                  const clienta = clientas.find(c => c.id === reserva.clienta_id);
-                  
+
                   return (
                     <button
                       key={reserva.id}
@@ -231,7 +233,7 @@ export default function MiCalendario() {
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900">{servicio?.nombre}</div>
                           <div className="text-sm text-gray-600 mt-1">
-                            {reserva.hora_inicio} - {reserva.hora_fin} • {clienta?.nombre}
+                            {reserva.hora_inicio} - {reserva.hora_fin} • {reserva.cliente_nombre || 'Cliente'}
                           </div>
                           <span className={`inline-block px-2 py-0.5 rounded text-xs mt-2 ${getEstadoBadge(reserva.estado).class}`}>
                             {getEstadoBadge(reserva.estado).label}
@@ -250,8 +252,7 @@ export default function MiCalendario() {
       {/* Modal de detalle de sesión */}
       {selectedReserva && (() => {
         const servicio = servicios.find(s => s.id === selectedReserva.servicio_id);
-        const clienta = clientas.find(c => c.id === selectedReserva.clienta_id);
-        
+
         return (
           <>
             <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setSelectedReserva(null)} />
@@ -289,7 +290,7 @@ export default function MiCalendario() {
                     <User size={20} className="text-gray-400" />
                     <div>
                       <div className="text-sm text-gray-500">Cliente</div>
-                      <div className="font-medium">{clienta?.nombre} {clienta?.apellidos}</div>
+                      <div className="font-medium">{selectedReserva.cliente_nombre || 'Cliente'}</div>
                     </div>
                   </div>
 
@@ -297,7 +298,7 @@ export default function MiCalendario() {
                     <Phone size={20} className="text-gray-400" />
                     <div>
                       <div className="text-sm text-gray-500">Teléfono</div>
-                      <div className="font-medium">{clienta?.telefono}</div>
+                      <div className="font-medium">{selectedReserva.cliente_telefono || 'No disponible'}</div>
                     </div>
                   </div>
 

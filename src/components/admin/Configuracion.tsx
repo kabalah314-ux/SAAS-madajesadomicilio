@@ -55,7 +55,7 @@ export default function Configuracion() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-24">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Settings size={28} />

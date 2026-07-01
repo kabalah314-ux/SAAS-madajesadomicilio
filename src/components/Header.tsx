@@ -1,8 +1,12 @@
-import { LogOut, Bell } from 'lucide-react';
+import { LogOut, Bell, Menu } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { useState } from 'react';
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const { currentUser, logout, notificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } = useApp();
   const [showNotif, setShowNotif] = useState(false);
 
@@ -34,6 +38,13 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
+            <button
+              onClick={onMenuClick}
+              className="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition lg:hidden"
+              aria-label="Abrir menú"
+            >
+              <Menu size={22} className="text-gray-700" />
+            </button>
             <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center">
               <span className="text-xl">💆‍♀️</span>
             </div>
@@ -125,8 +136,8 @@ export default function Header() {
             </div>
 
             {/* Usuario */}
-            <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-              <div className="text-right">
+            <div className="flex items-center gap-3 sm:pl-4 sm:border-l border-gray-200">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">{currentUser.nombre}</p>
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getRoleBadge(currentUser.role)}`}>
                   {getRoleName(currentUser.role)}
