@@ -229,6 +229,21 @@ Contra la Edge Function `agente` real (con A1/A2/A3 desplegados). **9/9 ✅.**
 - **FA8** Transferir: `resultado=transferida`. ✅
 - **FA1** Info: usa `info_negocio`, da precios reales (55€), no inventa, no queda como reserva. ✅
 
+### Mejora post-testeo · Email de "solicitud recibida" al cliente + plantilla más cuidada (2026-07-02)
+El usuario detectó que, al enviar una solicitud, **el cliente no recibía ningún aviso** (ni in-app ni
+email) — solo se notificaba a la masajista y al admin. Además pidió que el email no fuera "cutre".
+- **Migración `..._22_solicitud_recibida_cliente.sql`:** el trigger `notify_reserva_event` ahora, en
+  INSERT, también notifica al cliente ("Hemos recibido tu solicitud…") con un payload rico
+  (servicio/fecha/hora/dirección/precio/código). Se enriqueció el payload de TODAS las notificaciones
+  de reserva (nueva/asignada/aceptada/rechazada/cancelada) con esos mismos campos.
+- **`send-email/index.ts` rediseñado:** plantilla nueva con icono según el tipo de evento, tarjeta de
+  detalles (tabla label/valor) construida desde el payload, y botón CTA "Ver en MassFlow". Antes era
+  un único bloque de texto plano.
+- **Verificado en vivo:** `test_email_solicitud.py` 4/4 (notificación creada con payload completo +
+  **email real entregado por Resend**, `sent:true` con ID de mensaje). QA visual con Playwright
+  (`pw_email_preview.cjs`, réplica exacta de la plantilla) confirma el diseño: cabecera de marca,
+  icono, tarjeta de detalles legible, CTA. Edge Functions `send-email` redesplegada.
+
 > **✅ TODA LA GUÍA EN VERDE:** FA1–FA9 y FB1–FB8 verificados en vivo contra el código actual. FA2 12/12, clásicos 16/16, agente 9/9. Bugs cazados y arreglados en las 3 rondas. Frontend desplegado a Vercel y verificado en producción.
 
 ## 5. 📓 Diario de rondas del loop (lo más nuevo arriba)
