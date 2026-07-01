@@ -297,6 +297,24 @@ por IA** (en vez de/además del formulario manual de "Nueva Reserva").
 - **Runner:** `harness/tests/test_asistente_cliente.py` (16/16, incluye los 2 intentos de ataque) + `harness/tests/pw_asistente.cjs` (Playwright: login→chat→pregunta→reserva→aparece en Mis Reservas, verificado en local Y en producción).
 - **Sin migraciones** (canal `'app'` es texto libre, sin CHECK; RLS de `agente_*` sin tocar).
 
+**Mejora post-lanzamiento · el contexto no se pierde al cerrar la ventana (2026-07-02):** el usuario
+detectó que al recargar/cerrar la pestaña, el chat volvía a empezar de cero (el agente en el servidor
+SÍ recordaba todo — `llm_messages` en `agente_conversaciones` — pero la interfaz nunca lo volvía a
+pedir; `convId`/`msgs` solo vivían en memoria de React). **Fix:** migración `..._23` añade 2 políticas
+RLS **de solo lectura, aditivas** (`agente_conv_select_own_cliente`, `agente_msg_select_own_cliente`):
+una clienta puede leer sus PROPIAS conversaciones/mensajes (nunca los de otra; las políticas de
+escritura y las del admin no se tocan). `Asistente.tsx` ahora, al montar, recupera su última
+conversación + mensajes del servidor y los pinta antes de dejar escribir; botón "Nueva conversación"
+para empezar de cero cuando quiera.
+- **Falso positivo cazado durante la verificación:** un primer test de RLS pareció mostrar que Ana
+  veía la conversación de otra clienta — resultó ser un artefacto del arnés de pruebas (la API de
+  Management, en un batch multi-sentencia, a veces devuelve el resultado de una sentencia anterior
+  cuando la última SELECT da 0 filas). Confirmado con petición HTTP cruda + un patrón de SELECT amplio
+  + filtro en Python: la RLS es correcta (Ana ve solo sus 2 conversaciones, nunca las de otra).
+- **Verificado en vivo (local Y producción) con Playwright:** enviar mensaje → **recargar la página
+  entera** (simula cerrar/reabrir la ventana) → el mensaje y la respuesta real del agente siguen ahí;
+  "Nueva conversación" vuelve al saludo inicial. `pw_asistente_persistencia.cjs`.
+
 ## 5. 📓 Diario de rondas del loop (lo más nuevo arriba)
 
 - 2026-07-01 · **Ronda 1 · DETECCIÓN · FA2** (reserva contacto nuevo por el agente) · 11/12 casillas ✅. Hilo completo cruzando entrada→sistema→masajista→admin verificado con RLS. Bugs: **B-01** (admin no notificado, 🟠) y **B-02** (código no comunicado al cliente, 🟡). Runner `test_FA2_reserva_contacto_nuevo.py`, limpia tras de sí. · detección hecha, sin tocar código.
