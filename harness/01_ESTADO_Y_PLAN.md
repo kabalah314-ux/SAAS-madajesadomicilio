@@ -163,6 +163,34 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 
 ---
 
+## FASE 11 — Reparto con consentimiento + disponibilidad real 🚧 (PLANTEADO, sin construir)
+
+> Diseño completo + matriz de impacto en **`09_TESTEO_MAESTRO.md · FC3`**. Decisiones del usuario:
+> (1) coexisten pool abierto + oferta del admin; (2) si la masajista rechaza la oferta, vuelve al
+> admin (a `pendiente`); (3) sin disponibilidad configurada = NO disponible (estricto).
+> ⚠️ Implicación piloto: cada masajista real DEBE configurar su disponibilidad o no le entran reservas.
+
+**Bloque A — Oferta con consentimiento (admin propone, masajista acepta):**
+- [ ] **A1** Añadir estado `ofrecida` al enum `reserva_estado` (migración aparte).
+- [ ] **A2** `reservas_guard_update`: permitir `pendiente↔ofrecida` (admin) y `ofrecida→aceptada`/`ofrecida→pendiente` (masajista ofertada).
+- [ ] **A3** `notify_reserva_event`: avisos de oferta / aceptación / rechazo-devolución al admin.
+- [ ] **A4** AppContext: `ofrecerReserva` (admin) + `aceptarOferta`/`rechazarOferta` (masajista); mantener el claim del pool.
+- [ ] **A5** UI admin (`GestionReservas`): "Asignar" → "Ofrecer a…" (crea oferta, no confirma); mostrar "esperando respuesta".
+- [ ] **A6** UI masajista (`Solicitudes`): sección "Ofertas para ti" con Aceptar/Rechazar.
+
+**Bloque B — Disponibilidad real:**
+- [ ] **B1** Helper "¿masajista disponible en fecha/hora/duración?" (slot activo del weekday que cubra la hora + no solapa; estricto).
+- [ ] **B2** `consultar_huecos` (agente): cruzar con `disponibilidad`. Redeploy.
+- [ ] **B3** `NuevaReserva` (clienta): horas reales (solo con alguna masajista disponible), reactivo a la fecha.
+- [ ] **B4** Picker del admin: solo masajistas disponibles ese día/hora.
+- [ ] **B5** Pool abierto (`Solicitudes`): filtrar por la disponibilidad de la propia masajista.
+- [ ] **B7** UX: avisar a la masajista sin disponibilidad; vista admin de quién no la tiene.
+- [ ] **B6** (opcional fase 2) Backstop en BD: trigger que impida confirmar fuera de disponibilidad.
+
+- [ ] **Verificación E2E** de la matriz R1–R7 (`09 · FC3`): incluye 2 comprobaciones de seguridad (una masajista no acepta ofertas de otra; no confirmar fuera de disponibilidad).
+
+---
+
 ## 📓 Diario de progreso (lo más nuevo arriba)
 
 > Una línea por tarea terminada: `AAAA-MM-DD · tarea · qué se hizo · ¿compila/verificado?`

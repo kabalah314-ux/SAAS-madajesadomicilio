@@ -322,6 +322,54 @@ para empezar de cero cuando quiera.
   entera** (simula cerrar/reabrir la ventana) → el mensaje y la respuesta real del agente siguen ahí;
   "Nueva conversación" vuelve al saludo inicial. `pw_asistente_persistencia.cjs`.
 
+### Pendiente de construir · FC3 — Reparto con consentimiento + disponibilidad real (2026-07-02, pedido por el usuario)
+**Problema detectado por el usuario:** (1) hoy el admin, al "Asignar", manda la reserva directa a `aceptada`
+**sin preguntar a la masajista**; debería *proponérsela* y que la masajista decida. (2) La disponibilidad
+que la masajista configura en su panel **no se usa en ningún sitio**: la clienta ve horas fijas 9-21, el
+agente no la cruza, y el admin puede asignar a cualquiera esté o no disponible.
+
+**Estado actual del código (verificado):**
+- Admin "Asignar" → `aceptarSolicitud(reserva, masajista)` → `estado='aceptada'` directo (sin consentimiento).
+- Pool abierto: la masajista ve las `pendiente` sin asignar en "Solicitudes" y acepta/rechaza (aquí sí hay consentimiento).
+- `disponibilidad` (tabla: masajista_id, dia_semana 0-6, hora_inicio, hora_fin, is_active). Laura tiene: lunes 9-14 y 16-20. **No se consulta en ningún flujo.**
+- `NuevaReserva.tsx`: horas HARDCODED 9-21 (comentario: "simplificado - en producción consultaría disponibilidad real").
+- `consultar_huecos` (agente): cruza ocupación pero NO disponibilidad.
+- Enum `reserva_estado`: pendiente/aceptada/rechazada/completada/cancelada/expirada (no hay 'ofrecida').
+
+**✅ Decisiones del usuario (2026-07-02):**
+1. **Coexisten** el pool abierto Y la oferta dirigida del admin.
+2. Si la masajista **rechaza** una oferta del admin → la reserva **vuelve a `pendiente` sin asignar** y se avisa al admin para que la re-ofrezca (o la deje en el pool).
+3. **Estricto:** una masajista sin disponibilidad configurada se trata como **NO disponible** (no genera huecos). ⚠️ *Implicación para el piloto: cada masajista real DEBE configurar su disponibilidad o no le entrarán reservas; hay que avisarla claramente y dar al admin una vista de quién no la tiene.*
+
+#### Bloque A — Oferta con consentimiento (admin propone → masajista acepta)
+- **A1. DB:** añadir estado **`ofrecida`** al enum `reserva_estado` (migración aparte — `ALTER TYPE ADD VALUE` no se puede usar en la misma transacción que lo consuma).
+- **A2. DB `reservas_guard_update`:** permitir transiciones: admin/service `pendiente↔ofrecida`; la masajista OFERTADA `ofrecida→aceptada` o `ofrecida→pendiente` (rechazar la oferta = devolverla al pool sin asignar, guardando motivo; NO usar `rechazada` que es terminal).
+- **A3. Trigger `notify_reserva_event`:** al ofrecer → avisar a la masajista ("Te han ofrecido la reserva X"); al aceptar → cliente+admin (ya existe); al rechazar/devolver → avisar al admin ("X rechazó la oferta, vuelve a estar libre").
+- **A4. AppContext:** `ofrecerReserva(reservaId, masajistaId)` (admin) + `aceptarOferta`/`rechazarOferta` (masajista). El claim del pool abierto (`aceptarSolicitud`) se mantiene.
+- **A5. UI admin (`GestionReservas`):** "Asignar" pasa a **"Ofrecer a…"** (crea oferta, no confirma); mostrar estado `ofrecida` = "esperando respuesta de X".
+- **A6. UI masajista (`Solicitudes`):** sección **"Ofertas para ti"** (ofrecida + masajista_id=yo) con Aceptar/Rechazar, separada del pool abierto.
+- **A7.** `ofrecida` NO bloquea overbooking (no es confirmada); al aceptar, el trigger anti-overbooking ya protege.
+
+#### Bloque B — Disponibilidad real manda
+- **B1. Helper:** "¿masajista M disponible en fecha F / hora H / duración D?" = tiene slot activo para el weekday de F que cubra [H, H+D] **y** no solapa reserva activa. **Estricto:** sin slots → no disponible.
+- **B2. `consultar_huecos` (agente):** cruzar con `disponibilidad` (además de ocupación). Redeploy.
+- **B3. `NuevaReserva` (clienta):** sustituir las horas fijas por horas con **al menos una masajista disponible** (reactivo a la fecha elegida).
+- **B4. Picker del admin (`GestionReservas`):** al ofrecer, mostrar solo masajistas realmente disponibles ese día/hora (o marcar las no disponibles).
+- **B5. Pool abierto (`Solicitudes`):** las solicitudes abiertas que ve una masajista deben encajar con SU disponibilidad (además de zona/especialidad, que ya se filtra).
+- **B6. (Opcional, fase 2) Backstop en BD:** trigger que impida confirmar/ofrecer fuera de la disponibilidad (robustez de servidor, como el de overbooking).
+- **B7. UX:** avisar a la masajista sin disponibilidad ("no recibirás reservas"); vista admin de quién no la tiene.
+
+#### Matriz de impacto (qué verificar al construir)
+| # | Sección | Debe cumplir |
+|---|---------|--------------|
+| R1 | Clienta | Al elegir día/hora, **solo salen horas con alguna masajista disponible** (disponibilidad + libre); si nadie disponible, se le dice |
+| R2 | Admin | "Ofrecer a" solo lista masajistas disponibles ese día/hora; la reserva pasa a `ofrecida`, NO a `aceptada` |
+| R3 | Masajista | Recibe la oferta (aviso + en "Ofertas para ti"); **Aceptar** → confirmada; **Rechazar** → vuelve al admin |
+| R4 | Sistema | Al aceptar: `aceptada`, notifica cliente+admin, aparece en Mis Reservas; al rechazar: `pendiente` sin asignar, avisa admin |
+| R5 | Seguridad | Una masajista **no puede aceptar/rechazar una oferta dirigida a OTRA** (solo la suya) |
+| R6 | Seguridad | No se puede confirmar una reserva fuera de la disponibilidad de la masajista (idealmente backstop en BD) |
+| R7 | Agente | `consultar_huecos` respeta disponibilidad; el agente no ofrece una hora sin masajista disponible |
+
 ## 5. 📓 Diario de rondas del loop (lo más nuevo arriba)
 
 - 2026-07-01 · **Ronda 1 · DETECCIÓN · FA2** (reserva contacto nuevo por el agente) · 11/12 casillas ✅. Hilo completo cruzando entrada→sistema→masajista→admin verificado con RLS. Bugs: **B-01** (admin no notificado, 🟠) y **B-02** (código no comunicado al cliente, 🟡). Runner `test_FA2_reserva_contacto_nuevo.py`, limpia tras de sí. · detección hecha, sin tocar código.
