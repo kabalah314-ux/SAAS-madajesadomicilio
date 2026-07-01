@@ -359,6 +359,16 @@ agente no la cruza, y el admin puede asignar a cualquiera esté o no disponible.
 - **B6. (Opcional, fase 2) Backstop en BD:** trigger que impida confirmar/ofrecer fuera de la disponibilidad (robustez de servidor, como el de overbooking).
 - **B7. UX:** avisar a la masajista sin disponibilidad ("no recibirás reservas"); vista admin de quién no la tiene.
 
+#### Bloque C — Excepciones de disponibilidad por fecha concreta (2026-07-02, pedido por el usuario)
+El horario semanal (Bloque B) es la BASE recurrente ("todos los jueves 13-20"). Encima van excepciones
+puntuales por fecha, de dos tipos:
+- **Bloqueo:** la masajista marca una **fecha concreta** como no disponible (vacaciones/día libre), aunque
+  su horario semanal diga que ese día trabaja. Puede ser día completo o una franja.
+- **Extra:** añade disponibilidad en una **fecha concreta** que NO es su día habitual.
+- **C1. DB:** tabla nueva `disponibilidad_excepciones` (masajista_id, `fecha` date, `tipo` 'bloqueo'|'extra', `hora_inicio` nullable = día completo, `hora_fin`, `motivo`). RLS: la masajista gestiona las suyas; admin lee.
+- **C2. Helper de disponibilidad (extiende B1):** para fecha F / hora H, el orden es: (1) ¿hay bloqueo de F que cubra H? → NO disponible. (2) ¿hay 'extra' de F que cubra [H,H+D]? → disponible. (3) si no, cae al horario **semanal** (dia_semana). (4) y en todos los casos, no solapar reserva activa. Como B1 es la ÚNICA fuente de verdad, esto se propaga solo a huecos del cliente/agente/picker admin.
+- **C3. UI (`Disponibilidad.tsx`):** sección "Excepciones por fecha" con un selector de fecha → "Bloquear este día" (completo o franja) / "Añadir disponibilidad extra". Listar las excepciones próximas.
+
 #### Matriz de impacto (qué verificar al construir)
 | # | Sección | Debe cumplir |
 |---|---------|--------------|
@@ -369,6 +379,7 @@ agente no la cruza, y el admin puede asignar a cualquiera esté o no disponible.
 | R5 | Seguridad | Una masajista **no puede aceptar/rechazar una oferta dirigida a OTRA** (solo la suya) |
 | R6 | Seguridad | No se puede confirmar una reserva fuera de la disponibilidad de la masajista (idealmente backstop en BD) |
 | R7 | Agente | `consultar_huecos` respeta disponibilidad; el agente no ofrece una hora sin masajista disponible |
+| R8 | Excepciones | Un **bloqueo** de fecha concreta oculta esa masajista aunque su semanal diga que trabaja; un **extra** la hace disponible un día que no es el suyo habitual |
 
 ## 5. 📓 Diario de rondas del loop (lo más nuevo arriba)
 

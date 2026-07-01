@@ -187,7 +187,12 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 - [ ] **B7** UX: avisar a la masajista sin disponibilidad; vista admin de quién no la tiene.
 - [ ] **B6** (opcional fase 2) Backstop en BD: trigger que impida confirmar fuera de disponibilidad.
 
-- [ ] **Verificación E2E** de la matriz R1–R7 (`09 · FC3`): incluye 2 comprobaciones de seguridad (una masajista no acepta ofertas de otra; no confirmar fuera de disponibilidad).
+**Bloque C — Excepciones de disponibilidad por fecha concreta:**
+- [ ] **C1** Tabla `disponibilidad_excepciones` (masajista_id, fecha, tipo 'bloqueo'|'extra', hora_inicio nullable, hora_fin, motivo) + RLS.
+- [ ] **C2** Extender el helper de disponibilidad (B1): las excepciones de la fecha mandan sobre el horario semanal (bloqueo oculta, extra abre); si no hay, cae al semanal.
+- [ ] **C3** UI en `Disponibilidad.tsx`: sección "Excepciones por fecha" (bloquear un día / disponibilidad extra) + listado de próximas.
+
+- [ ] **Verificación E2E** de la matriz R1–R8 (`09 · FC3`): incluye 2 comprobaciones de seguridad (una masajista no acepta ofertas de otra; no confirmar fuera de disponibilidad) y las excepciones (bloqueo oculta / extra abre).
 
 ---
 
