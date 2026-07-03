@@ -6,11 +6,17 @@
 
 ---
 
-## 🟢 ESTADO ACTUAL Y CÓMO CONTINUAR (actualizado 2026-07-02)
+## 🟢 ESTADO ACTUAL Y CÓMO CONTINUAR (actualizado 2026-07-03)
 
 **Resumen:** la app está **funcional, testeada de punta a punta y desplegada en producción**. El grueso
 está hecho y verificado. La fuente de verdad del testeo y los diseños es **[`09_TESTEO_MAESTRO.md`](09_TESTEO_MAESTRO.md)**;
 el estado de tareas, **[`01_ESTADO_Y_PLAN.md`](01_ESTADO_Y_PLAN.md)**.
+
+> **✅ NUEVO 2026-07-03 — FASE 12 y FASE 11 COMPLETAS (desplegadas).**
+> - **Fase 12** (correcciones de la revisión del usuario, 8/10): campana de notificaciones navega, admin cambia estado de reservas + tarjetas móvil, BUG invitar masajista (era CORS) arreglado, gasto real de clientas + tarjetas móvil, modales ya no se cierran al volver a la app, crear servicio arreglado, rediseño de Mi Calendario. (12.8 fue a Fase 11·B; 12.10 desplegado.)
+> - **Fase 11** (reparto con consentimiento + disponibilidad real): **Bloque A** el admin OFRECE (estado `ofrecida`) y la masajista acepta/rechaza; **Bloque B** la disponibilidad real filtra clienta/admin/agente/pool (estricto) vía funciones SQL `masajista_disponible`/`masajistas_disponibles`/`horas_disponibles`; **Bloque C** excepciones por fecha (bloqueo/extra); **B6** backstop en BD; **B7** avisos. Migraciones `_24`–`_28`, `agente` redesplegado. Todo verificado (BD + E2E Playwright) y en producción; `main` sincronizado (PRs #2–#5).
+> - **Pendiente**: pasada E2E conjunta formal R1–R8 (verificado por piezas), y opciones nuevas: Fase 9·B (WhatsApp), activar Stripe, verificar dominio email.
+> - ⚠️ **Piloto**: la disponibilidad es ESTRICTA. La masajista de prueba "Laura" solo tiene el LUNES configurado, así que al reservar solo salen huecos los lunes (correcto). Cada masajista real DEBE configurar su disponibilidad.
 
 ### Qué está hecho y VERIFICADO EN VIVO
 - **Fases 0–8** (seguridad/RLS, flujos de negocio, automatización, pulido, camino a vendible) + **Fase 9 Agente FASE A** + **FASE C (Análisis)**.
