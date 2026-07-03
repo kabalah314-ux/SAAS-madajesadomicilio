@@ -705,17 +705,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return data;
   };
 
-  // Crea una masajista (Edge Function admin-actions → auth.admin.createUser).
-  const createMasajista = async (payload: { email: string; password: string; full_name: string; phone?: string }) => {
-    const { data, error } = await supabase.functions.invoke('admin-actions', {
-      body: { action: 'create_user', payload: { ...payload, role: 'masajista' } },
-    });
-    if (error) throw error;
-    await loadAllMasajistas();
-    return data;
-  };
-
   // Invita a un masajista por email (admin-actions → genera enlace + lo envía por Resend).
+  // (El alta directa con contraseña temporal se retiró: los masajistas solo se dan de
+  // alta por invitación, ver GestionAccesos.tsx.)
   const inviteMasajista = async (email: string, full_name: string) => {
     const { data, error } = await supabase.functions.invoke('admin-actions', {
       body: { action: 'invite_masajista', payload: { email, full_name, redirect_to: `${window.location.origin}/?setpw=1` } },
@@ -984,7 +976,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveDisponibilidad,
     updateTransferencia,
     cerrarCiclo,
-    createMasajista,
     inviteMasajista,
     promoteToAdmin,
     uploadDocumento,

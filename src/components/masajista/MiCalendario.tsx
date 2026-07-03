@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, MapPin, User, Phone, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, MapPin, User, Phone, CheckCircle } from 'lucide-react';
 import { useApp } from '../../AppContext';
-import { Reserva, Servicio } from '../../types';
+import { Reserva } from '../../types';
 import EmptyState from '../EmptyState';
 
 export default function MiCalendario() {

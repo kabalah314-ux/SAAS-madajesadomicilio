@@ -12,18 +12,12 @@
 //          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (inyectadas).
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const MODEL = Deno.env.get("OPENROUTER_MODEL") ?? "openai/gpt-4o-mini";
 const WEBHOOK_SECRET = Deno.env.get("AGENTE_WEBHOOK_SECRET") ?? "";
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, x-webhook-secret, x-client-info, apikey",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 const SYSTEM = `Eres el asistente telefónico de un negocio de masajes a domicilio (MassFlow), en España.
 Hablas en español, con tono cercano, educado y BREVE (esto puede ser una llamada).
@@ -163,6 +157,9 @@ async function log(convId: string, rol: string, contenido: string, metadata: any
 }
 
 serve(async (req) => {
+  const cors = corsHeaders(req, "authorization, content-type, x-webhook-secret, x-client-info, apikey");
+  const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   // --- Auth: webhook secret O admin JWT O clienta autenticada (canal 'app', su propia cuenta) ---

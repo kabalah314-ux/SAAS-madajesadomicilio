@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Plus, Edit, Eye, UserX, UserCheck, Trash2, X, Check, AlertTriangle } from 'lucide-react';
+import { Edit, Eye, UserX, UserCheck, X, Check } from 'lucide-react';
 import { useApp } from '../../AppContext';
-import { Masajista, TipoServicio, Documento } from '../../types';
+import { Masajista, TipoServicio } from '../../types';
 
 export default function GestionMasajistas() {
-  const { masajistas, updateMasajista, createMasajista, verificarDocumento, verificarMasajista, getDocumentoUrl, currentUser, reservas, transferencias } = useApp();
+  const { masajistas, updateMasajista, verificarDocumento, verificarMasajista, getDocumentoUrl, currentUser, reservas, transferencias } = useApp();
   const [busy, setBusy] = useState(false);
-  const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
+  const [showModal, setShowModal] = useState<'edit' | null>(null);
   const [showDrawer, setShowDrawer] = useState<Masajista | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'activas' | 'pendientes' | 'suspendidas'>('todos');
   
@@ -72,40 +72,14 @@ export default function GestionMasajistas() {
   };
 
   const handleSubmit = async () => {
+    if (showModal !== 'edit' || !editingId) return;
     setBusy(true);
     try {
-      if (showModal === 'edit' && editingId) {
-        const updateData: any = { ...formData };
-        delete updateData.pin; // el PIN ya no se usa (auth por contraseña)
-        await updateMasajista(editingId, updateData);
-        setShowModal(null);
-        resetForm();
-      } else if (showModal === 'create') {
-        if (!formData.email || !formData.nombre) {
-          alert('Nombre y email son obligatorios');
-          return;
-        }
-        const tempPass = 'Masaje' + Math.floor(1000 + Math.random() * 9000);
-        const res = await createMasajista({
-          email: formData.email,
-          password: tempPass,
-          full_name: `${formData.nombre} ${formData.apellidos}`.trim(),
-          phone: formData.telefono || undefined,
-        });
-        const newId = res?.user_id;
-        // Rellenar el perfil profesional recién creado.
-        if (newId && (formData.bio || formData.especialidades.length || formData.zonas_cobertura.length || formData.iban)) {
-          await updateMasajista(newId, {
-            bio: formData.bio,
-            especialidades: formData.especialidades,
-            zonas_cobertura: formData.zonas_cobertura,
-            iban: formData.iban,
-          } as any);
-        }
-        alert(`Masajista creada ✅\n\nEmail: ${formData.email}\nContraseña temporal: ${tempPass}\n\nCompártela con ella; podrá cambiarla al entrar. Recuerda verificar sus documentos para que aparezca en las reservas.`);
-        setShowModal(null);
-        resetForm();
-      }
+      const updateData: any = { ...formData };
+      delete updateData.pin; // el PIN ya no se usa (auth por contraseña)
+      await updateMasajista(editingId, updateData);
+      setShowModal(null);
+      resetForm();
     } catch (e: any) {
       alert(e?.message || 'No se pudo completar la operación');
     } finally {
@@ -172,25 +146,17 @@ export default function GestionMasajistas() {
             <option value="pendientes">Pendientes Docs ({masajistas.filter(m => !m.documentacion_ok).length})</option>
             <option value="suspendidas">Suspendidas ({masajistas.filter(m => !m.activo).length})</option>
           </select>
-
-          <button
-            onClick={() => {
-              resetForm();
-              setShowModal('create');
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Nueva Masajista
-          </button>
         </div>
       </div>
+
+      <p className="text-sm text-gray-500 -mt-2">
+        Para dar de alta una masajista nueva, ve a <strong>Accesos</strong> e invítala por email — aquí solo se edita el perfil de masajistas ya existentes.
+      </p>
 
       {/* Grid de masajistas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {masajistasFiltradas.map(masajista => {
           const estado = getEstadoBadge(masajista);
-          const docsCompletos = masajista.documentos.every(d => d.estado === 'verificado');
           const docsPendientes = masajista.documentos.filter(d => d.estado === 'pendiente_revision').length;
 
           return (
@@ -280,9 +246,7 @@ export default function GestionMasajistas() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">
-                  {showModal === 'create' ? 'Nueva Masajista' : 'Editar Masajista'}
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Editar Masajista</h3>
                 <button onClick={() => setShowModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <X size={20} />
                 </button>
@@ -317,8 +281,8 @@ export default function GestionMasajistas() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      disabled={showModal === 'edit'}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
+                      disabled
                     />
                   </div>
                   <div>
@@ -416,7 +380,7 @@ export default function GestionMasajistas() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      PIN {showModal === 'edit' && '(dejar vacío para no cambiar)'}
+                      PIN (dejar vacío para no cambiar)
                     </label>
                     <input
                       type="password"
@@ -424,7 +388,7 @@ export default function GestionMasajistas() {
                       onChange={(e) => setFormData(prev => ({ ...prev, pin: e.target.value.slice(0, 4) }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                       maxLength={4}
-                      placeholder={showModal === 'edit' ? '••••' : '4 dígitos'}
+                      placeholder="••••"
                     />
                   </div>
                 </div>
@@ -453,7 +417,7 @@ export default function GestionMasajistas() {
                   disabled={!formData.nombre || !formData.email || busy}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50"
                 >
-                  {busy ? 'Procesando...' : (showModal === 'create' ? 'Crear' : 'Guardar Cambios')}
+                  {busy ? 'Procesando...' : 'Guardar Cambios'}
                 </button>
               </div>
             </div>

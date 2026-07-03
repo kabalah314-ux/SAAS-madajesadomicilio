@@ -107,7 +107,6 @@ export default function Login() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition"
                   placeholder="••••••••"
                   required
-                  minLength={6}
                 />
               </div>
 
@@ -184,9 +183,9 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition"
-                  placeholder="Minimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
 

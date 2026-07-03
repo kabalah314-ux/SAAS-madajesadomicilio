@@ -56,12 +56,12 @@ export default function SetPassword() {
               </p>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nueva contraseña</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Mínimo 6 caracteres" />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Mínimo 8 caracteres" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Repite la contraseña</label>
-                <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} minLength={6} required
+                <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} minLength={8} required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" placeholder="••••••••" />
               </div>
               {error && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, FileText, DollarSign, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Calendar, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import EmptyState from '../EmptyState';
 

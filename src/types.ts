@@ -210,7 +210,6 @@ export interface AppContextType {
   saveDisponibilidad: (masajistaId: string, slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]) => Promise<void>;
   updateTransferencia: (id: string, estado: TransferenciaEstado, referencia?: string) => Promise<void>;
   cerrarCiclo: (fechaInicio: string, fechaFin: string) => Promise<any>;
-  createMasajista: (payload: { email: string; password: string; full_name: string; phone?: string }) => Promise<any>;
   inviteMasajista: (email: string, full_name: string) => Promise<{ success: boolean; email_sent: boolean; email_error: string | null; action_link: string | null }>;
   promoteToAdmin: (userId: string) => Promise<any>;
   uploadDocumento: (masajistaId: string, tipo: string, file: File) => Promise<void>;

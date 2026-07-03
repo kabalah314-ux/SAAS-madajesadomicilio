@@ -79,10 +79,13 @@ export default function GestionServicios() {
 
     setBusy(true);
     try {
+      // formData.tipo es '' solo mientras el select está sin elegir; el guard de arriba
+      // ya bloqueó ese caso, así que aquí es seguro tratarlo como TipoServicio.
+      const payload = { ...formData, tipo: formData.tipo as TipoServicio };
       if (showModal === 'create') {
-        await createServicio(formData);
+        await createServicio(payload);
       } else if (showModal === 'edit' && editingId) {
-        await updateServicio(editingId, formData);
+        await updateServicio(editingId, payload);
       }
       setShowModal(null);
       resetForm();

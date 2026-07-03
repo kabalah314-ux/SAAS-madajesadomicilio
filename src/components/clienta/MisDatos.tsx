@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Save, User, Lock } from 'lucide-react';
 import { useApp } from '../../AppContext';
-import { TipoServicio } from '../../types';
+import { TipoServicio, Direccion } from '../../types';
 import { CONSENTIMIENTO_SALUD_TEXTO, LEGAL_VERSION } from '../../legal';
 import LegalModal from '../LegalModal';
 
@@ -23,7 +23,7 @@ export default function MisDatos() {
   const [nombre, setNombre] = useState(clienta.nombre || '');
   const [apellidos, setApellidos] = useState(clienta.apellidos || '');
   const [telefono, setTelefono] = useState(clienta.telefono || '');
-  const [direccion, setDireccion] = useState(clienta.direccion_habitual || {
+  const [direccion, setDireccion] = useState<Direccion>(clienta.direccion_habitual || {
     calle: '',
     numero: '',
     piso: '',

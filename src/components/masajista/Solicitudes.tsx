@@ -4,7 +4,7 @@ import { useApp } from '../../AppContext';
 import EmptyState from '../EmptyState';
 
 export default function Solicitudes() {
-  const { currentUser, reservas, servicios, clientas, aceptarSolicitud, rechazarSolicitud } = useApp();
+  const { currentUser, reservas, servicios, aceptarSolicitud, rechazarSolicitud } = useApp();
   const [selectedReserva, setSelectedReserva] = useState<string | null>(null);
   const [showRechazarModal, setShowRechazarModal] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
@@ -86,7 +86,6 @@ export default function Solicitudes() {
       <div className="space-y-4">
         {solicitudesPendientes.map(reserva => {
           const servicio = servicios.find(s => s.id === reserva.servicio_id);
-          const clienta = clientas.find(c => c.id === reserva.clienta_id);
           const tiempo = getTiempoRestante(reserva.creada_en);
           const pagoMasajista = Math.round(reserva.pago_masajista);
 
