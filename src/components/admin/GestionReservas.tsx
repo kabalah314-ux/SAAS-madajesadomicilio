@@ -3,10 +3,10 @@ import { Calendar, Filter, UserPlus, Ban, CheckCircle, X } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { Reserva } from '../../types';
 
-type FiltroEstado = 'todas' | 'pendiente_asignacion' | 'confirmada' | 'completada' | 'cancelada';
+type FiltroEstado = 'todas' | 'pendiente_asignacion' | 'ofrecida' | 'confirmada' | 'completada' | 'cancelada';
 
 export default function GestionReservas() {
-  const { reservas, servicios, clientas, masajistas, aceptarSolicitud, updateReserva, marcarReservaCompletada, currentUser } = useApp();
+  const { reservas, servicios, clientas, masajistas, updateReserva, marcarReservaCompletada, ofrecerReserva, currentUser } = useApp();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todas');
   const [showAsignar, setShowAsignar] = useState<Reserva | null>(null);
   const [masajistaSeleccionada, setMasajistaSeleccionada] = useState('');
@@ -27,6 +27,7 @@ export default function GestionReservas() {
       'confirmada': { label: 'Confirmada', class: 'bg-green-100 text-green-700' },
       'completada': { label: 'Completada', class: 'bg-gray-100 text-gray-700' },
       'pendiente_asignacion': { label: 'Pendiente Asignación', class: 'bg-yellow-100 text-yellow-700' },
+      'ofrecida': { label: 'Oferta enviada', class: 'bg-amber-100 text-amber-700' },
       'cancelada_clienta': { label: 'Cancelada', class: 'bg-red-100 text-red-700' },
       'cancelada_masajista': { label: 'Cancelada', class: 'bg-red-100 text-red-700' }
     };
@@ -36,18 +37,18 @@ export default function GestionReservas() {
   const handleAsignar = async () => {
     if (!showAsignar || !masajistaSeleccionada) return;
     try {
-      if (showAsignar.estado === 'pendiente_asignacion') {
-        // Solicitud abierta → claim atómico (asigna y confirma).
-        await aceptarSolicitud(showAsignar.id, masajistaSeleccionada);
-      } else {
+      if (showAsignar.estado === 'confirmada') {
         // Ya confirmada → reasignación directa (el admin puede por el trigger).
         await updateReserva(showAsignar.id, { masajista_id: masajistaSeleccionada });
+      } else {
+        // Pendiente → se OFRECE a la masajista (no se confirma; ella decide).
+        await ofrecerReserva(showAsignar.id, masajistaSeleccionada);
       }
       setShowAsignar(null);
       setMasajistaSeleccionada('');
       setDetalle(null);
     } catch (e: any) {
-      alert(e?.message || 'No se pudo asignar la masajista');
+      alert(e?.message || 'No se pudo completar la acción');
     }
   };
 
@@ -76,6 +77,16 @@ export default function GestionReservas() {
     }
   };
 
+  const handleRetirarOferta = async (reserva: Reserva) => {
+    try {
+      // masajista_id null = liberar la reserva (el tipo la marca opcional; el cast es intencional).
+      await updateReserva(reserva.id, { estado: 'pendiente_asignacion', masajista_id: null } as any);
+      setDetalle(null);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo retirar la oferta');
+    }
+  };
+
   // Botones de acción según el estado de la reserva. Se usa en la tabla (escritorio)
   // y en el drawer de detalle (móvil). Abrir un modal cierra el drawer para no solaparlos.
   const renderAcciones = (reserva: Reserva) => {
@@ -83,10 +94,24 @@ export default function GestionReservas() {
       return (
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={() => { setDetalle(null); setShowAsignar(reserva); }} className="text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1">
-            <UserPlus size={16} />Asignar
+            <UserPlus size={16} />Ofrecer a…
           </button>
           <button onClick={() => { setDetalle(null); setShowCancelar(reserva); }} className="text-red-600 hover:text-red-700 font-medium flex items-center gap-1">
             <Ban size={16} />Cancelar
+          </button>
+        </div>
+      );
+    }
+    if (reserva.estado === 'ofrecida') {
+      const m = masajistas.find(x => x.id === reserva.masajista_id);
+      return (
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-amber-700">Esperando respuesta{m ? ` de ${m.nombre}` : ''}</span>
+          <button onClick={() => { setDetalle(null); setShowAsignar(reserva); }} className="text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1">
+            <UserPlus size={16} />Ofrecer a otra
+          </button>
+          <button onClick={() => handleRetirarOferta(reserva)} className="text-gray-600 hover:text-gray-800 font-medium flex items-center gap-1">
+            <X size={16} />Retirar
           </button>
         </div>
       );
@@ -112,6 +137,7 @@ export default function GestionReservas() {
   const stats = {
     total: reservas.length,
     pendientes: reservas.filter(r => r.estado === 'pendiente_asignacion').length,
+    ofrecidas: reservas.filter(r => r.estado === 'ofrecida').length,
     confirmadas: reservas.filter(r => r.estado === 'confirmada').length,
     completadas: reservas.filter(r => r.estado === 'completada').length
   };
@@ -133,6 +159,7 @@ export default function GestionReservas() {
           >
             <option value="todas">Todas ({stats.total})</option>
             <option value="pendiente_asignacion">Pendientes ({stats.pendientes})</option>
+            <option value="ofrecida">Ofrecidas ({stats.ofrecidas})</option>
             <option value="confirmada">Confirmadas ({stats.confirmadas})</option>
             <option value="completada">Completadas ({stats.completadas})</option>
             <option value="cancelada">Canceladas</option>
@@ -371,7 +398,7 @@ export default function GestionReservas() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">{showAsignar.estado === 'confirmada' ? 'Reasignar Masajista' : 'Asignar Masajista'}</h3>
+                <h3 className="text-lg font-bold text-gray-900">{showAsignar.estado === 'confirmada' ? 'Reasignar Masajista' : 'Ofrecer a una masajista'}</h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Reserva {showAsignar.codigo} • {servicios.find(s => s.id === showAsignar.servicio_id)?.nombre}
                 </p>
@@ -481,7 +508,7 @@ export default function GestionReservas() {
                   disabled={!masajistaSeleccionada}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {showAsignar.estado === 'confirmada' ? 'Confirmar Reasignación' : 'Confirmar Asignación'}
+                  {showAsignar.estado === 'confirmada' ? 'Confirmar Reasignación' : 'Enviar oferta'}
                 </button>
               </div>
             </div>
