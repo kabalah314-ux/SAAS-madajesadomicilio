@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Save, Clock, Plus, Trash2, Check } from 'lucide-react';
+import { Save, Clock, Plus, Trash2, Check, CalendarX, CalendarPlus } from 'lucide-react';
 import { useApp } from '../../AppContext';
+import { ExcepcionDisponibilidad } from '../../types';
 
 interface SlotDisponibilidad {
   dia: number; // 0-6 (domingo-sábado)
@@ -10,19 +11,63 @@ interface SlotDisponibilidad {
 }
 
 export default function Disponibilidad() {
-  const { currentUser, getDisponibilidad, saveDisponibilidad } = useApp();
+  const { currentUser, getDisponibilidad, saveDisponibilidad, getExcepciones, addExcepcion, deleteExcepcion } = useApp();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Las franjas se cargan desde la BD al entrar.
   const [slots, setSlots] = useState<SlotDisponibilidad[]>([]);
 
+  // Excepciones por fecha (Fase 11·C).
+  const [excepciones, setExcepciones] = useState<ExcepcionDisponibilidad[]>([]);
+  const [excFecha, setExcFecha] = useState('');
+  const [excTipo, setExcTipo] = useState<'bloqueo' | 'extra'>('bloqueo');
+  const [excDiaCompleto, setExcDiaCompleto] = useState(true);
+  const [excIni, setExcIni] = useState('09:00');
+  const [excFin, setExcFin] = useState('14:00');
+  const [excMotivo, setExcMotivo] = useState('');
+  const [excBusy, setExcBusy] = useState(false);
+
   // Cargar disponibilidad real de la masajista logueada.
   useEffect(() => {
     if (!currentUser) return;
     getDisponibilidad(currentUser.id).then(setSlots).catch(() => {});
+    getExcepciones(currentUser.id).then(setExcepciones).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
+
+  const recargarExc = async () => {
+    if (currentUser) setExcepciones(await getExcepciones(currentUser.id).catch(() => []));
+  };
+  const handleAddExc = async () => {
+    if (!currentUser || !excFecha) return;
+    setExcBusy(true);
+    try {
+      const franja = !excDiaCompleto;
+      await addExcepcion(currentUser.id, {
+        fecha: excFecha,
+        tipo: excTipo,
+        hora_inicio: franja ? excIni : null,
+        hora_fin: franja ? excFin : null,
+        motivo: excMotivo,
+      });
+      setExcFecha('');
+      setExcMotivo('');
+      await recargarExc();
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo guardar la excepción');
+    } finally {
+      setExcBusy(false);
+    }
+  };
+  const handleDelExc = async (id: string) => {
+    try {
+      await deleteExcepcion(id);
+      await recargarExc();
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo eliminar la excepción');
+    }
+  };
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [newSlot, setNewSlot] = useState({ hora_inicio: '09:00', hora_fin: '14:00' });
@@ -368,6 +413,79 @@ export default function Disponibilidad() {
           </div>
         </div>
       )}
+
+      {/* Excepciones por fecha (Fase 11·C) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Excepciones por fecha</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Bloquea un día concreto (vacaciones) o añade disponibilidad extra un día que no es habitual. Manda sobre tu horario semanal.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Formulario */}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <button onClick={() => setExcTipo('bloqueo')} className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium flex items-center justify-center gap-1 ${excTipo === 'bloqueo' ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-200 text-gray-600'}`}>
+                <CalendarX size={16} />Bloquear
+              </button>
+              <button onClick={() => setExcTipo('extra')} className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium flex items-center justify-center gap-1 ${excTipo === 'extra' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-600'}`}>
+                <CalendarPlus size={16} />Añadir extra
+              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <input type="date" value={excFecha} min={new Date().toISOString().split('T')[0]} onChange={e => setExcFecha(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={excDiaCompleto} onChange={e => setExcDiaCompleto(e.target.checked)} className="w-4 h-4" />
+              {excTipo === 'bloqueo' ? 'Día completo' : 'Todo el día'}
+            </label>
+            {!excDiaCompleto && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Desde</label>
+                  <select value={excIni} onChange={e => setExcIni(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    {horasDisponibles.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Hasta</label>
+                  <select value={excFin} onChange={e => setExcFin(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    {horasDisponibles.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            <input type="text" value={excMotivo} onChange={e => setExcMotivo(e.target.value)} placeholder="Motivo (opcional)" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+            <button onClick={handleAddExc} disabled={!excFecha || excBusy} className="w-full px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg font-medium disabled:opacity-50">
+              {excBusy ? 'Guardando...' : 'Añadir excepción'}
+            </button>
+          </div>
+          {/* Lista de próximas */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Próximas excepciones</h4>
+            {excepciones.length === 0 ? (
+              <p className="text-sm text-gray-400">No tienes excepciones programadas.</p>
+            ) : (
+              <div className="space-y-2">
+                {excepciones.map(x => (
+                  <div key={x.id} className={`flex items-center justify-between p-3 rounded-lg border ${x.tipo === 'bloqueo' ? 'bg-red-50 border-red-200' : 'bg-teal-50 border-teal-200'}`}>
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-900">
+                        {new Date(x.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        <span className={`ml-2 text-xs ${x.tipo === 'bloqueo' ? 'text-red-700' : 'text-teal-700'}`}>{x.tipo === 'bloqueo' ? 'Bloqueado' : 'Extra'}</span>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {x.hora_inicio ? `${x.hora_inicio}–${x.hora_fin}` : 'Todo el día'}{x.motivo ? ` · ${x.motivo}` : ''}
+                      </div>
+                    </div>
+                    <button onClick={() => handleDelExc(x.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Información */}
       <div className="bg-blue-50 rounded-xl p-6">
