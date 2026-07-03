@@ -171,12 +171,12 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 > ⚠️ Implicación piloto: cada masajista real DEBE configurar su disponibilidad o no le entran reservas.
 
 **Bloque A — Oferta con consentimiento (admin propone, masajista acepta):**
-- [ ] **A1** Añadir estado `ofrecida` al enum `reserva_estado` (migración aparte).
-- [ ] **A2** `reservas_guard_update`: permitir `pendiente↔ofrecida` (admin) y `ofrecida→aceptada`/`ofrecida→pendiente` (masajista ofertada).
-- [ ] **A3** `notify_reserva_event`: avisos de oferta / aceptación / rechazo-devolución al admin.
-- [ ] **A4** AppContext: `ofrecerReserva` (admin) + `aceptarOferta`/`rechazarOferta` (masajista); mantener el claim del pool.
-- [ ] **A5** UI admin (`GestionReservas`): "Asignar" → "Ofrecer a…" (crea oferta, no confirma); mostrar "esperando respuesta".
-- [ ] **A6** UI masajista (`Solicitudes`): sección "Ofertas para ti" con Aceptar/Rechazar.
+- [x] **A1** Añadir estado `ofrecida` al enum `reserva_estado` (migración aparte). → `_24_ofrecida_enum.sql`
+- [x] **A2** `reservas_guard_update`: permitir `pendiente↔ofrecida` (admin) y `ofrecida→aceptada`/`ofrecida→pendiente` (masajista ofertada). → `_25` + cláusula RLS en `reservas_update_participants` WITH CHECK (el trigger sigue siendo el guardián).
+- [x] **A3** `notify_reserva_event`: avisos de oferta / aceptación / rechazo-devolución al admin. → `_25` (ofrecer avisa a la masajista; aceptar/rechazar avisan a admins; N2 "asignada" excluye ofertas).
+- [x] **A4** AppContext: `ofrecerReserva` (admin) + `aceptarOferta`/`rechazarOferta` (masajista); mantener el claim del pool.
+- [x] **A5** UI admin (`GestionReservas`): "Asignar" → "Ofrecer a…" (crea oferta, no confirma); estado `ofrecida` = "Oferta enviada / Esperando respuesta" + Retirar / Ofrecer a otra.
+- [x] **A6** UI masajista (`Solicitudes`): sección "Ofertas para ti" con Aceptar/Rechazar (separada del pool abierto).
 
 **Bloque B — Disponibilidad real:**
 - [ ] **B1** Helper "¿masajista disponible en fecha/hora/duración?" (slot activo del weekday que cubra la hora + no solapa; estricto).
@@ -247,6 +247,7 @@ Sin esto, la app **no se puede ver funcionando** (el cliente Supabase revienta s
 
 > Una línea por tarea terminada: `AAAA-MM-DD · tarea · qué se hizo · ¿compila/verificado?`
 
+- 2026-07-03 · **FASE 11 · BLOQUE A (consentimiento) — A1–A7 COMPLETO** · El admin OFRECE (estado `ofrecida`) y la masajista acepta/rechaza. DB: migración `_24` (enum `ofrecida`) + `_25` (trigger `reservas_guard_update` permite el rechazo ofrecida→pendiente liberando la reserva; `notify_reserva_event` avisa oferta/aceptación/rechazo; cláusula RLS en `reservas_update_participants` WITH CHECK para que la masajista devuelva la reserva al pool). Front: `ofrecerReserva`/`aceptarOferta`/`rechazarOferta` en AppContext; `GestionReservas` "Ofrecer a…" + estado ofrecida (retirar/ofrecer a otra); `Solicitudes` sección "Ofertas para ti". A7: `ofrecida` no dispara overbooking (el trigger solo actúa en aceptada/completada). · **Verificado EN VIVO**: flujo DB ofrecer→rechazar→re-ofrecer→aceptar (clienta NO puede aceptar, 400) + **E2E por la UI** con Playwright (admin ofrece MF-001082 → "Oferta enviada" → masajista "Ofertas para ti" → acepta → `aceptada`), 0 errores consola, tsc 0 + build OK. Pendiente Bloque B (disponibilidad real, incl. 12.8) y C (excepciones).
 - 2026-07-03 · **FASE 12 (8 de 10 tareas: 12.1–12.7 + 12.9)** · Diagnóstico multi-agente + implementación en la rama buena (main ya fusionado): 12.1 campana navega por rol (`Header.tsx`); 12.2 acciones de estado del admin (asignar/completar/reasignar/cancelar con motivo → `cancelacion_motivo`+`cancelado_por`) + 12.4 tarjetas móvil + drawer detalle (`GestionReservas.tsx`, `updateReserva` propaga campos, `types.ts`); 12.3 BUG invitar masajista = CORS 5199 (`_shared/cors.ts` + permitir localhost; **redesplegadas** admin-actions/agente/create-checkout); 12.5 gasto real de clientas (suma `precio_total` completadas en `loadAllClientas`/`mapClienta`) + tarjetas móvil; 12.6 modales ya no se cierran al volver a la app (ignora TOKEN_REFRESHED del mismo user en `useAuth.tsx` + no resetea vista en `AppContext`); 12.7 crear servicio (quitado `tipo` obligatorio + error real); 12.9 rediseño Mi Calendario (mensual con disponibilidad verde+puntos, semanal por horas con datos reales, fecha LOCAL sin `toISOString`, botón Modificar horario, lista con Aceptar/Rechazar). · **tsc 0 + build OK + Playwright 375px: 0 errores consola, 0 overflow, gasto 55€ real visible**. Pendiente: **12.8** (→ Fase 11·B) y **12.10** (redeploy frontend a Vercel, requiere permiso).
 - 2026-06-30 · **Harness creado** · estructura `harness/` + plan completo. · n/a
 - 2026-06-30 · **Fase 1 (Seguridad)** · quitado registro admin del formulario (`Login.tsx`), `signUp` solo cliente/masajista (`useAuth.tsx`), migración `..._05_security.sql` que fuerza rol no-admin en el trigger. · compila + `npm run build` OK; pendiente probar en vivo.

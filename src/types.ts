@@ -2,11 +2,12 @@
 
 export type UserRole = 'admin' | 'masajista' | 'clienta';
 
-export type ReservaEstado = 
-  | 'pendiente_asignacion' 
-  | 'confirmada' 
-  | 'completada' 
-  | 'cancelada_clienta' 
+export type ReservaEstado =
+  | 'pendiente_asignacion'
+  | 'ofrecida'
+  | 'confirmada'
+  | 'completada'
+  | 'cancelada_clienta'
   | 'cancelada_masajista'
   | 'rechazada';
 
@@ -225,6 +226,9 @@ export interface AppContextType {
   createValoracion: (data: Omit<Valoracion, 'id'>) => void;
   aceptarSolicitud: (reservaId: string, masajistaId: string) => void;
   rechazarSolicitud: (reservaId: string, motivo: string) => void;
+  ofrecerReserva: (reservaId: string, masajistaId: string) => Promise<void>;
+  aceptarOferta: (reservaId: string) => Promise<void>;
+  rechazarOferta: (reservaId: string, motivo: string) => Promise<void>;
   marcarReservaCompletada: (reservaId: string) => void;
   cancelarReservaPorClienta: (reservaId: string) => void;
   updateDocumento: (masajistaId: string, documentoId: string, data: Partial<Documento>) => void;

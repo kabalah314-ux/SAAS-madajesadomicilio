@@ -442,6 +442,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   function mapReserva(r: any): Reserva {
     const estadoMap: Record<string, string> = {
       'pendiente': 'pendiente_asignacion',
+      'ofrecida': 'ofrecida',
       'aceptada': 'confirmada',
       'completada': 'completada',
       'rechazada': 'rechazada',
@@ -794,6 +795,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.estado) {
       const reverseEstadoMap: Record<string, string> = {
         'pendiente_asignacion': 'pendiente',
+        'ofrecida': 'ofrecida',
         'confirmada': 'aceptada',
         'completada': 'completada',
         'rechazada': 'rechazada',
@@ -802,7 +804,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       supaData.estado = reverseEstadoMap[data.estado] || data.estado;
     }
-    if (data.masajista_id) supaData.masajista_id = data.masajista_id;
+    if (data.masajista_id !== undefined) supaData.masajista_id = data.masajista_id; // permite null (retirar oferta)
     if (data.motivo_rechazo) supaData.rechazo_motivo = data.motivo_rechazo;
     if (data.motivo_cancelacion !== undefined) supaData.cancelacion_motivo = data.motivo_cancelacion;
     if (data.cancelado_por !== undefined) supaData.cancelado_por = data.cancelado_por;
@@ -854,6 +856,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const rechazarSolicitud = async (reservaId: string, motivo: string) => {
     await updateReserva(reservaId, { estado: 'rechazada', motivo_rechazo: motivo });
+  };
+
+  // Fase 11·A — Reparto con consentimiento.
+  // El admin OFRECE la reserva a una masajista (no la confirma): estado 'ofrecida'.
+  const ofrecerReserva = async (reservaId: string, masajistaId: string) => {
+    const { error } = await supabase
+      .from('reservas')
+      .update({ estado: 'ofrecida', masajista_id: masajistaId })
+      .eq('id', reservaId);
+    if (error) throw error;
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'ofrecida', masajista_id: masajistaId } : r));
+  };
+
+  // La masajista ACEPTA una oferta dirigida a ella → confirmada.
+  const aceptarOferta = async (reservaId: string) => {
+    const { data, error } = await supabase
+      .from('reservas')
+      .update({ estado: 'aceptada', aceptada_en: new Date().toISOString() })
+      .eq('id', reservaId)
+      .eq('estado', 'ofrecida')
+      .select('*, servicios(nombre), valoraciones(*), clientes(profiles(full_name, phone))');
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Esta oferta ya no está disponible.');
+    const mapped = mapReserva(data[0]);
+    setReservas(prev => prev.map(r => r.id === reservaId ? mapped : r));
+  };
+
+  // La masajista RECHAZA la oferta → la reserva vuelve al pool sin asignar.
+  const rechazarOferta = async (reservaId: string, motivo: string) => {
+    const { data, error } = await supabase
+      .from('reservas')
+      .update({ estado: 'pendiente', masajista_id: null, rechazo_motivo: motivo })
+      .eq('id', reservaId)
+      .eq('estado', 'ofrecida')
+      .select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Esta oferta ya no está disponible.');
+    // Deja de ser suya (vuelve al pool); se quita de su lista local.
+    setReservas(prev => prev.filter(r => r.id !== reservaId));
   };
 
   const marcarReservaCompletada = async (reservaId: string) => {
@@ -1013,6 +1054,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createValoracion,
     aceptarSolicitud,
     rechazarSolicitud,
+    ofrecerReserva,
+    aceptarOferta,
+    rechazarOferta,
     marcarReservaCompletada,
     cancelarReservaPorClienta,
     updateDocumento,
