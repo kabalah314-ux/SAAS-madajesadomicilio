@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Filter, UserPlus, Ban, CheckCircle, X } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { Reserva } from '../../types';
@@ -6,13 +6,28 @@ import { Reserva } from '../../types';
 type FiltroEstado = 'todas' | 'pendiente_asignacion' | 'ofrecida' | 'confirmada' | 'completada' | 'cancelada';
 
 export default function GestionReservas() {
-  const { reservas, servicios, clientas, masajistas, updateReserva, marcarReservaCompletada, ofrecerReserva, currentUser } = useApp();
+  const { reservas, servicios, clientas, masajistas, updateReserva, marcarReservaCompletada, ofrecerReserva, getMasajistasDisponibles, currentUser } = useApp();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todas');
   const [showAsignar, setShowAsignar] = useState<Reserva | null>(null);
   const [masajistaSeleccionada, setMasajistaSeleccionada] = useState('');
   const [showCancelar, setShowCancelar] = useState<Reserva | null>(null);
   const [motivoCancel, setMotivoCancel] = useState('');
   const [detalle, setDetalle] = useState<Reserva | null>(null);
+  // Ids de masajistas disponibles para la reserva del picker (fecha/hora/servicio).
+  const [dispIds, setDispIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!showAsignar) { setDispIds(null); return; }
+    const serv = servicios.find(s => s.id === showAsignar.servicio_id);
+    const dur = serv?.duracion_minutos ?? 60;
+    let cancel = false;
+    setDispIds(null);
+    getMasajistasDisponibles(showAsignar.fecha, showAsignar.hora_inicio, dur, showAsignar.servicio_id)
+      .then(ids => { if (!cancel) setDispIds(ids); })
+      .catch(() => { if (!cancel) setDispIds([]); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAsignar]);
 
   const reservasFiltradas = reservas.filter(r => {
     if (filtroEstado === 'todas') return true;
@@ -429,11 +444,13 @@ export default function GestionReservas() {
                 </div>
 
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Selecciona una masajista disponible:
+                  {dispIds === null ? 'Comprobando disponibilidad…' : 'Selecciona una masajista disponible:'}
                 </label>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {masajistas.filter(m => m.activo && m.documentacion_ok).map(masajista => {
+                    // B: ¿disponible ese día/hora y da ese servicio? (null = aún cargando)
+                    const disponible = dispIds === null || dispIds.includes(masajista.id);
                     // Zona de la reserva: barrio si existe, si no la ciudad.
                     const zonaReserva = (showAsignar.direccion.barrio || showAsignar.direccion.ciudad || '').toLowerCase();
                     // B2: si la reserva no trae barrio ni ciudad, la zona es DESCONOCIDA. No se puede
@@ -451,11 +468,14 @@ export default function GestionReservas() {
                     return (
                       <button
                         key={masajista.id}
-                        onClick={() => setMasajistaSeleccionada(masajista.id)}
+                        onClick={() => disponible && setMasajistaSeleccionada(masajista.id)}
+                        disabled={!disponible}
                         className={`w-full p-4 rounded-lg border-2 transition text-left ${
-                          masajistaSeleccionada === masajista.id
-                            ? 'border-teal-500 bg-teal-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                          !disponible
+                            ? 'border-gray-200 opacity-50 cursor-not-allowed'
+                            : masajistaSeleccionada === masajista.id
+                              ? 'border-teal-500 bg-teal-50'
+                              : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -473,7 +493,11 @@ export default function GestionReservas() {
                               <span className="text-gray-500">•</span>
                               <span className="text-gray-600">{masajista.total_sesiones} sesiones</span>
                             </div>
-                            {zonaDesconocida ? (
+                            {!disponible ? (
+                              <div className="text-xs text-red-600 mt-1">
+                                🚫 No disponible ese día/hora (o no ofrece este servicio)
+                              </div>
+                            ) : zonaDesconocida ? (
                               <div className="text-xs text-amber-600 mt-1">
                                 ⚠️ La reserva no tiene zona (barrio/ciudad); verifica que cubre la dirección antes de asignar.
                               </div>
