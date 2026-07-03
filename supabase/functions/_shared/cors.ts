@@ -5,14 +5,18 @@ const ALLOWED_ORIGINS = [
   "https://saas-madajesadomicilio.vercel.app",
   "http://localhost:5173",
   "http://localhost:4173",
+  "http://localhost:5199",
 ];
 
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
-  // Vercel Preview Deployments de este proyecto: https://saas-madajesadomicilio-<hash>.vercel.app
   try {
     const host = new URL(origin).hostname;
+    // Cualquier puerto de desarrollo local (seguro: el navegador de una víctima
+    // nunca envía origin localhost; solo ocurre en la máquina del desarrollador).
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    // Vercel Preview Deployments de este proyecto: https://saas-madajesadomicilio-<hash>.vercel.app
     return host.endsWith(".vercel.app") && host.startsWith("saas-madajesadomicilio");
   } catch {
     return false;

@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
+import { useEffect, useState, createContext, useContext, ReactNode, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 
@@ -29,16 +29,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Último user.id cargado. Sirve para ignorar los TOKEN_REFRESHED (mismo usuario)
+  // que dispara Supabase al recuperar el foco: si recargáramos el profile, se
+  // desmontaría la vista activa y se perdería lo escrito en un modal (bug 12.6).
+  const currentUidRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id);
-      else setLoading(false);
+      if (session?.user) {
+        currentUidRef.current = session.user.id;
+        loadProfile(session.user.id);
+      } else {
+        currentUidRef.current = null;
+        setLoading(false);
+      }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      const uid = s?.user?.id ?? null;
+      // Mismo usuario (p.ej. refresco de token al volver a la app): solo actualizar
+      // la sesión, sin recargar profile ni tocar loading → no se desmonta la vista.
+      if (uid && uid === currentUidRef.current) {
+        setSession(s);
+        return;
+      }
+      currentUidRef.current = uid;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) loadProfile(s.user.id);

@@ -108,6 +108,8 @@ export interface Reserva {
   pago_masajista: number; // 60% del total
   notas_clienta?: string;
   motivo_rechazo?: string;
+  motivo_cancelacion?: string;
+  cancelado_por?: string; // id del usuario que cancela (admin/clienta/masajista)
   valoracion?: Valoracion;
   pago_estado?: 'pendiente' | 'pagado' | 'reembolsado' | 'fallido';
   creada_en: string; // ISO datetime
