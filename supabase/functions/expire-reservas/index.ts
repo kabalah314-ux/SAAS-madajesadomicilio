@@ -27,9 +27,12 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
-  // Notify clients about expired reservations
-  if (expired && expired.length > 0) {
-    const notifications = expired.map((r: any) => ({
+  // Notify clients about expired reservations. Solo clientes REGISTRADOS (cliente_id):
+  // los contactos del agente tienen cliente_id NULL y se avisan por WhatsApp/teléfono.
+  // Sin este filtro, un contacto en el lote metía un user_id NULL y rompía TODO el insert.
+  const conCliente = (expired ?? []).filter((r: any) => r.cliente_id);
+  if (conCliente.length > 0) {
+    const notifications = conCliente.map((r: any) => ({
       user_id: r.cliente_id,
       tipo: "reserva_cancelada",
       titulo: "Reserva expirada",

@@ -4,7 +4,7 @@ import { useApp } from '../../AppContext';
 import EmptyState from '../EmptyState';
 
 export default function MisReservas() {
-  const { currentUser, reservas, servicios, masajistas, cancelarReservaPorClienta, createValoracion } = useApp();
+  const { currentUser, reservas, servicios, masajistas, cancelarReservaPorClienta, createValoracion, navigate, stripeEnabled, crearCheckoutReserva } = useApp();
   const [showCancelar, setShowCancelar] = useState<string | null>(null);
   const [showValorar, setShowValorar] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
@@ -159,6 +159,16 @@ export default function MisReservas() {
                         </button>
                       )}
 
+                      {/* Pagar online (solo si Stripe está configurado y la reserva no está pagada) */}
+                      {stripeEnabled && reserva.estado === 'confirmada' && reserva.pago_estado !== 'pagado' && (
+                        <button
+                          onClick={() => crearCheckoutReserva(reserva.id)}
+                          className="px-4 py-2 bg-blue-50 border-2 border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm font-medium flex items-center gap-2"
+                        >
+                          💳 Pagar online
+                        </button>
+                      )}
+
                       {/* Valorar (solo si está completada y no ha sido valorada) */}
                       {reserva.estado === 'completada' && !yaValorada && masajista && (
                         <button
@@ -173,6 +183,7 @@ export default function MisReservas() {
                       {/* Repetir (solo si está completada) */}
                       {reserva.estado === 'completada' && (
                         <button
+                          onClick={() => navigate('nueva-reserva')}
                           className="px-4 py-2 bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg hover:bg-teal-100 transition text-sm font-medium flex items-center gap-2"
                         >
                           <Repeat size={16} />

@@ -4,7 +4,7 @@ import { useApp } from '../../AppContext';
 import EmptyState from '../EmptyState';
 
 export default function Solicitudes() {
-  const { currentUser, reservas, servicios, clientas, aceptarSolicitud, rechazarSolicitud } = useApp();
+  const { currentUser, reservas, servicios, aceptarSolicitud, rechazarSolicitud } = useApp();
   const [selectedReserva, setSelectedReserva] = useState<string | null>(null);
   const [showRechazarModal, setShowRechazarModal] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
@@ -34,17 +34,31 @@ export default function Solicitudes() {
     };
   };
 
-  const handleAceptar = (reservaId: string) => {
-    aceptarSolicitud(reservaId, currentUser.id);
-    setSelectedReserva(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleAceptar = async (reservaId: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await aceptarSolicitud(reservaId, currentUser.id);
+      setSelectedReserva(null);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo aceptar la solicitud');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleRechazar = () => {
+  const handleRechazar = async () => {
     if (selectedReserva && motivoRechazo) {
-      rechazarSolicitud(selectedReserva, motivoRechazo);
-      setShowRechazarModal(false);
-      setSelectedReserva(null);
-      setMotivoRechazo('');
+      try {
+        await rechazarSolicitud(selectedReserva, motivoRechazo);
+        setShowRechazarModal(false);
+        setSelectedReserva(null);
+        setMotivoRechazo('');
+      } catch (e: any) {
+        alert(e?.message || 'No se pudo rechazar la solicitud');
+      }
     }
   };
 
@@ -72,9 +86,8 @@ export default function Solicitudes() {
       <div className="space-y-4">
         {solicitudesPendientes.map(reserva => {
           const servicio = servicios.find(s => s.id === reserva.servicio_id);
-          const clienta = clientas.find(c => c.id === reserva.clienta_id);
           const tiempo = getTiempoRestante(reserva.creada_en);
-          const pagoMasajista = Math.round(reserva.precio_total * 0.6);
+          const pagoMasajista = Math.round(reserva.pago_masajista);
 
           return (
             <div key={reserva.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
@@ -113,7 +126,7 @@ export default function Solicitudes() {
                       
                       <div className="flex items-center gap-2 text-gray-700">
                         <MapPin size={16} className="text-gray-400" />
-                        <span>{reserva.direccion.barrio}</span>
+                        <span>{reserva.direccion.ciudad || reserva.direccion.barrio || 'Zona no indicada'}</span>
                       </div>
                       
                       <div className="flex items-center gap-2 text-gray-700 font-medium">
@@ -147,10 +160,11 @@ export default function Solicitudes() {
                   
                   <button
                     onClick={() => handleAceptar(reserva.id)}
-                    className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center justify-center gap-2 shadow-md"
+                    disabled={busy}
+                    className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
                   >
                     <Check size={18} />
-                    Aceptar Solicitud
+                    {busy ? 'Procesando...' : 'Aceptar Solicitud'}
                   </button>
                 </div>
               </div>

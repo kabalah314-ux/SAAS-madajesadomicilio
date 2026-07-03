@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Clock, Plus, Trash2, Check } from 'lucide-react';
 import { useApp } from '../../AppContext';
 
@@ -10,24 +10,19 @@ interface SlotDisponibilidad {
 }
 
 export default function Disponibilidad() {
-  const { currentUser } = useApp();
+  const { currentUser, getDisponibilidad, saveDisponibilidad } = useApp();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Estado inicial con disponibilidad por defecto
-  const [slots, setSlots] = useState<SlotDisponibilidad[]>([
-    // Ejemplo: Lunes a Viernes 9:00-14:00 y 16:00-20:00
-    { dia: 1, hora_inicio: '09:00', hora_fin: '14:00', activo: true },
-    { dia: 1, hora_inicio: '16:00', hora_fin: '20:00', activo: true },
-    { dia: 2, hora_inicio: '09:00', hora_fin: '14:00', activo: true },
-    { dia: 2, hora_inicio: '16:00', hora_fin: '20:00', activo: true },
-    { dia: 3, hora_inicio: '09:00', hora_fin: '14:00', activo: true },
-    { dia: 3, hora_inicio: '16:00', hora_fin: '20:00', activo: true },
-    { dia: 4, hora_inicio: '09:00', hora_fin: '14:00', activo: true },
-    { dia: 4, hora_inicio: '16:00', hora_fin: '20:00', activo: true },
-    { dia: 5, hora_inicio: '09:00', hora_fin: '14:00', activo: true },
-    { dia: 5, hora_inicio: '16:00', hora_fin: '20:00', activo: true },
-  ]);
+  // Las franjas se cargan desde la BD al entrar.
+  const [slots, setSlots] = useState<SlotDisponibilidad[]>([]);
+
+  // Cargar disponibilidad real de la masajista logueada.
+  useEffect(() => {
+    if (!currentUser) return;
+    getDisponibilidad(currentUser.id).then(setSlots).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [newSlot, setNewSlot] = useState({ hora_inicio: '09:00', hora_fin: '14:00' });
@@ -94,17 +89,18 @@ export default function Disponibilidad() {
     }
   };
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
+    if (!currentUser) return;
     setSaving(true);
-    
-    // En producción guardaría en el backend
-    console.log('Guardar disponibilidad:', slots);
-    
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await saveDisponibilidad(currentUser.id, slots);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    }, 1000);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo guardar la disponibilidad');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalHorasSemana = slots

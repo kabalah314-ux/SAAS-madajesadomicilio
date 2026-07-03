@@ -7,7 +7,8 @@ import confetti from 'canvas-confetti';
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 export default function NuevaReserva() {
-  const { currentUser, servicios, masajistas, createReserva } = useApp();
+  const { currentUser, servicios, masajistas, createReserva, configuracion, navigate } = useApp();
+  const pagoPct = 100 - configuracion.comision_plataforma_pct;
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
 
@@ -75,43 +76,49 @@ export default function NuevaReserva() {
     }
   };
 
-  const confirmarReserva = () => {
+  const [errorReserva, setErrorReserva] = useState('');
+
+  const confirmarReserva = async () => {
     if (!selectedServicio) return;
 
     setLoading(true);
-    
+    setErrorReserva('');
+
     // Calcular hora fin
     const [hora, minuto] = horaInicio.split(':').map(Number);
     const horaFinNum = hora + Math.floor(selectedServicio.duracion_minutos / 60);
     const minutoFin = (minuto + (selectedServicio.duracion_minutos % 60)) % 60;
     const horaFin = `${horaFinNum.toString().padStart(2, '0')}:${minutoFin.toString().padStart(2, '0')}`;
 
-    const nuevaReserva = createReserva({
-      clienta_id: currentUser!.id,
-      masajista_id: selectedMasajista?.id,
-      servicio_id: selectedServicio.id,
-      fecha,
-      hora_inicio: horaInicio,
-      hora_fin: horaFin,
-      direccion,
-      estado: selectedMasajista ? 'confirmada' : 'pendiente_asignacion',
-      precio_total: selectedServicio.precio,
-      pago_masajista: Math.round(selectedServicio.precio * 0.6),
-      notas_clienta: notas
-    });
+    try {
+      const nuevaReserva = await createReserva({
+        clienta_id: currentUser!.id,
+        masajista_id: selectedMasajista?.id,
+        servicio_id: selectedServicio.id,
+        fecha,
+        hora_inicio: horaInicio,
+        hora_fin: horaFin,
+        direccion,
+        estado: selectedMasajista ? 'confirmada' : 'pendiente_asignacion',
+        precio_total: selectedServicio.precio,
+        pago_masajista: Math.round(selectedServicio.precio * pagoPct / 100),
+        notas_clienta: notas
+      });
 
-    setTimeout(() => {
       setReservaCreada(nuevaReserva);
-      setLoading(false);
       setStep(6);
-      
+
       // Confetti!
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 }
       });
-    }, 1500);
+    } catch (err: any) {
+      setErrorReserva(err?.message || 'No se pudo crear la reserva. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Obtener slots disponibles (simplificado - en producción consultaría disponibilidad real)
@@ -504,6 +511,10 @@ export default function NuevaReserva() {
               />
             </div>
 
+            {errorReserva && (
+              <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{errorReserva}</div>
+            )}
+
             <button
               onClick={confirmarReserva}
               disabled={loading}
@@ -548,7 +559,7 @@ export default function NuevaReserva() {
                 Nueva Reserva
               </button>
               <button
-                onClick={() => {/* navegar a mis reservas */}}
+                onClick={() => navigate('mis-reservas')}
                 className="px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium"
               >
                 Ver Mis Reservas

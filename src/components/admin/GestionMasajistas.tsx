@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Plus, Edit, Eye, UserX, UserCheck, Trash2, X, Check, AlertTriangle } from 'lucide-react';
+import { Edit, Eye, UserX, UserCheck, X, Check } from 'lucide-react';
 import { useApp } from '../../AppContext';
-import { Masajista, TipoServicio, Documento } from '../../types';
+import { Masajista, TipoServicio } from '../../types';
 
 export default function GestionMasajistas() {
-  const { masajistas, updateMasajista, verificarDocumento, currentUser, reservas, transferencias } = useApp();
-  const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
+  const { masajistas, updateMasajista, verificarDocumento, verificarMasajista, getDocumentoUrl, currentUser, reservas, transferencias } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [showModal, setShowModal] = useState<'edit' | null>(null);
   const [showDrawer, setShowDrawer] = useState<Masajista | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'activas' | 'pendientes' | 'suspendidas'>('todos');
   
@@ -70,24 +71,53 @@ export default function GestionMasajistas() {
     setShowModal('edit');
   };
 
-  const handleSubmit = () => {
-    if (showModal === 'edit' && editingId) {
+  const handleSubmit = async () => {
+    if (showModal !== 'edit' || !editingId) return;
+    setBusy(true);
+    try {
       const updateData: any = { ...formData };
-      if (!formData.pin) delete updateData.pin; // No actualizar PIN si está vacío
-      updateMasajista(editingId, updateData);
+      delete updateData.pin; // el PIN ya no se usa (auth por contraseña)
+      await updateMasajista(editingId, updateData);
       setShowModal(null);
       resetForm();
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo completar la operación');
+    } finally {
+      setBusy(false);
     }
-    // Create nueva masajista requeriría backend
   };
 
   const handleToggleActivo = (id: string, activo: boolean) => {
     updateMasajista(id, { activo: !activo });
   };
 
-  const handleVerificarDoc = (masajistaId: string, docId: string) => {
-    if (currentUser) {
-      verificarDocumento(masajistaId, docId, currentUser.id);
+  const handleVerificarDoc = async (masajistaId: string, docId: string) => {
+    if (!currentUser) return;
+    try {
+      await verificarDocumento(masajistaId, docId, currentUser.id);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo verificar el documento');
+    }
+  };
+
+  const handleVerDoc = async (storagePath?: string) => {
+    if (!storagePath) { alert('Este documento no tiene archivo subido.'); return; }
+    try {
+      const url = await getDocumentoUrl(storagePath);
+      window.open(url, '_blank', 'noopener');
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo abrir el documento');
+    }
+  };
+
+  const handleVerificarMasajista = async (masajistaId: string) => {
+    setBusy(true);
+    try {
+      await verificarMasajista(masajistaId);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo verificar la masajista');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -116,25 +146,17 @@ export default function GestionMasajistas() {
             <option value="pendientes">Pendientes Docs ({masajistas.filter(m => !m.documentacion_ok).length})</option>
             <option value="suspendidas">Suspendidas ({masajistas.filter(m => !m.activo).length})</option>
           </select>
-
-          <button
-            onClick={() => {
-              resetForm();
-              setShowModal('create');
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Nueva Masajista
-          </button>
         </div>
       </div>
+
+      <p className="text-sm text-gray-500 -mt-2">
+        Para dar de alta una masajista nueva, ve a <strong>Accesos</strong> e invítala por email — aquí solo se edita el perfil de masajistas ya existentes.
+      </p>
 
       {/* Grid de masajistas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {masajistasFiltradas.map(masajista => {
           const estado = getEstadoBadge(masajista);
-          const docsCompletos = masajista.documentos.every(d => d.estado === 'verificado');
           const docsPendientes = masajista.documentos.filter(d => d.estado === 'pendiente_revision').length;
 
           return (
@@ -224,9 +246,7 @@ export default function GestionMasajistas() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">
-                  {showModal === 'create' ? 'Nueva Masajista' : 'Editar Masajista'}
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Editar Masajista</h3>
                 <button onClick={() => setShowModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <X size={20} />
                 </button>
@@ -261,8 +281,8 @@ export default function GestionMasajistas() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      disabled={showModal === 'edit'}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
+                      disabled
                     />
                   </div>
                   <div>
@@ -360,7 +380,7 @@ export default function GestionMasajistas() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      PIN {showModal === 'edit' && '(dejar vacío para no cambiar)'}
+                      PIN (dejar vacío para no cambiar)
                     </label>
                     <input
                       type="password"
@@ -368,7 +388,7 @@ export default function GestionMasajistas() {
                       onChange={(e) => setFormData(prev => ({ ...prev, pin: e.target.value.slice(0, 4) }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                       maxLength={4}
-                      placeholder={showModal === 'edit' ? '••••' : '4 dígitos'}
+                      placeholder="••••"
                     />
                   </div>
                 </div>
@@ -394,10 +414,10 @@ export default function GestionMasajistas() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!formData.nombre || !formData.email}
+                  disabled={!formData.nombre || !formData.email || busy}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50"
                 >
-                  {showModal === 'create' ? 'Crear' : 'Guardar Cambios'}
+                  {busy ? 'Procesando...' : 'Guardar Cambios'}
                 </button>
               </div>
             </div>
@@ -407,7 +427,9 @@ export default function GestionMasajistas() {
 
       {/* Drawer de perfil detallado */}
       {showDrawer && (() => {
-        const masajista = showDrawer;
+        // Leer la versión viva del array para que los cambios (verificar doc /
+        // verificar masajista) se reflejen en el drawer sin reabrirlo.
+        const masajista = masajistas.find(m => m.id === showDrawer.id) || showDrawer;
         const reservasMasajista = reservas.filter(r => r.masajista_id === masajista.id);
         const transferenciasMasajista = transferencias.filter(t => t.masajista_id === masajista.id);
 
@@ -439,6 +461,16 @@ export default function GestionMasajistas() {
                         <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getEstadoBadge(masajista).class}`}>
                           {getEstadoBadge(masajista).label}
                         </span>
+                      )}
+                      {!masajista.documentacion_ok && (
+                        <button
+                          onClick={() => handleVerificarMasajista(masajista.id)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 transition disabled:opacity-50"
+                        >
+                          <UserCheck size={14} />
+                          {busy ? 'Verificando...' : 'Verificar masajista'}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -496,6 +528,11 @@ export default function GestionMasajistas() {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-3">Documentación</h4>
                   <div className="space-y-2">
+                    {masajista.documentos.length === 0 && (
+                      <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
+                        La masajista aún no ha subido documentos.
+                      </p>
+                    )}
                     {masajista.documentos.map(doc => {
                       const getDocIcon = (tipo: string) => {
                         if (tipo === 'autonoma') return '📄';
@@ -518,15 +555,26 @@ export default function GestionMasajistas() {
                               </div>
                             </div>
                           </div>
-                          {doc.estado === 'pendiente_revision' && (
-                            <button
-                              onClick={() => handleVerificarDoc(masajista.id, doc.id)}
-                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-1"
-                            >
-                              <Check size={16} />
-                              Verificar
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {doc.url && (
+                              <button
+                                onClick={() => handleVerDoc(doc.url)}
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium flex items-center gap-1"
+                              >
+                                <Eye size={16} />
+                                Ver
+                              </button>
+                            )}
+                            {doc.estado === 'pendiente_revision' && (
+                              <button
+                                onClick={() => handleVerificarDoc(masajista.id, doc.id)}
+                                className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-1"
+                              >
+                                <Check size={16} />
+                                Verificar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

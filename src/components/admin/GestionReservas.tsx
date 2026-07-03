@@ -140,7 +140,7 @@ export default function GestionReservas() {
                         <span className="text-gray-500">{reserva.hora_inicio}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {reserva.direccion.barrio}
+                        {reserva.direccion.barrio || reserva.direccion.ciudad || '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {reserva.precio_total}€
@@ -204,7 +204,7 @@ export default function GestionReservas() {
                     </div>
                     <div>
                       <span className="text-gray-600">Zona:</span>
-                      <span className="ml-2 font-medium text-gray-900">{showAsignar.direccion.barrio}</span>
+                      <span className="ml-2 font-medium text-gray-900">{showAsignar.direccion.barrio || showAsignar.direccion.ciudad || '—'}</span>
                     </div>
                     <div>
                       <span className="text-gray-600">Precio:</span>
@@ -219,19 +219,28 @@ export default function GestionReservas() {
 
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {masajistas.filter(m => m.activo && m.documentacion_ok).map(masajista => {
-                    const cubreLaZona = masajista.zonas_cobertura.includes(showAsignar.direccion.barrio);
-                    
+                    // Zona de la reserva: barrio si existe, si no la ciudad.
+                    const zonaReserva = (showAsignar.direccion.barrio || showAsignar.direccion.ciudad || '').toLowerCase();
+                    // B2: si la reserva no trae barrio ni ciudad, la zona es DESCONOCIDA. No se puede
+                    // afirmar que la masajista la cubre → se avisa aparte (antes se ocultaba el aviso).
+                    const zonaDesconocida = !zonaReserva;
+                    // Cubre la zona si la masajista no tiene zonas definidas o coincide (fuzzy).
+                    const cubreLaZona = !zonaDesconocida && (
+                      masajista.zonas_cobertura.length === 0
+                      || masajista.zonas_cobertura.some(z => {
+                        const zz = z.toLowerCase();
+                        return zz === zonaReserva || zz.includes(zonaReserva) || zonaReserva.includes(zz);
+                      })
+                    );
+
                     return (
                       <button
                         key={masajista.id}
                         onClick={() => setMasajistaSeleccionada(masajista.id)}
-                        disabled={!cubreLaZona}
                         className={`w-full p-4 rounded-lg border-2 transition text-left ${
                           masajistaSeleccionada === masajista.id
                             ? 'border-teal-500 bg-teal-50'
-                            : cubreLaZona
-                              ? 'border-gray-200 hover:border-gray-300'
-                              : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -249,14 +258,18 @@ export default function GestionReservas() {
                               <span className="text-gray-500">•</span>
                               <span className="text-gray-600">{masajista.total_sesiones} sesiones</span>
                             </div>
-                            {!cubreLaZona && (
-                              <div className="text-xs text-red-600 mt-1">
-                                No cubre la zona {showAsignar.direccion.barrio}
+                            {zonaDesconocida ? (
+                              <div className="text-xs text-amber-600 mt-1">
+                                ⚠️ La reserva no tiene zona (barrio/ciudad); verifica que cubre la dirección antes de asignar.
                               </div>
-                            )}
+                            ) : !cubreLaZona ? (
+                              <div className="text-xs text-amber-600 mt-1">
+                                ⚠️ Quizá no cubre {showAsignar.direccion.barrio || showAsignar.direccion.ciudad || 'la zona'} (puedes asignarla igualmente)
+                              </div>
+                            ) : null}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {Math.round(showAsignar.precio_total * 0.6)}€ pago
+                            {Math.round(showAsignar.pago_masajista)}€ pago
                           </div>
                         </div>
                       </button>
