@@ -210,6 +210,8 @@ export interface AppContextType {
   updateServicio: (id: string, data: Partial<Servicio>) => Promise<void>;
   deleteServicio: (id: string) => Promise<void>;
   getDisponibilidad: (masajistaId: string) => Promise<{ dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]>;
+  getHorasDisponibles: (fecha: string, servicioId: string) => Promise<string[]>;
+  getMasajistasDisponibles: (fecha: string, hora: string, dur: number, servicioId: string) => Promise<string[]>;
   saveDisponibilidad: (masajistaId: string, slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]) => Promise<void>;
   updateTransferencia: (id: string, estado: TransferenciaEstado, referencia?: string) => Promise<void>;
   cerrarCiclo: (fechaInicio: string, fechaFin: string) => Promise<any>;

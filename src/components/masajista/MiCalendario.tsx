@@ -152,6 +152,22 @@ export default function MiCalendario() {
         <p className="text-gray-600 mt-1">Tu disponibilidad y tus sesiones en un vistazo</p>
       </div>
 
+      {/* B7: aviso si no tiene disponibilidad configurada (no le entran reservas). */}
+      {slotsActivos.length === 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl">⚠️</span>
+          <div className="flex-1">
+            <p className="font-medium text-amber-900">No recibirás reservas</p>
+            <p className="text-sm text-amber-800 mt-0.5">
+              Aún no has configurado tu disponibilidad. Sin horarios, ni las clientas ni el administrador pueden ofrecerte sesiones.
+            </p>
+            <button onClick={() => navigate('disponibilidad')} className="mt-2 text-sm font-medium text-amber-900 underline">
+              Configurar mi disponibilidad
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1) Calendario mensual */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">

@@ -232,9 +232,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .eq('estado', 'pendiente')
       .order('created_at', { ascending: false });
 
+    // Disponibilidad de la masajista (para el filtro estricto B5).
+    const { data: dispRows } = await supabase
+      .from('disponibilidad')
+      .select('dia_semana, hora_inicio, hora_fin, is_active')
+      .eq('masajista_id', masajistaId);
+    const slots = (dispRows || []).filter((d: any) => d.is_active).map((d: any) => ({
+      dia: d.dia_semana,
+      ini: String(d.hora_inicio).slice(0, 5),
+      fin: String(d.hora_fin).slice(0, 5),
+    }));
+    const toMin = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+    // ¿Tiene franja activa ese día que cubra [hora, hora+dur] y sin solapar sus reservas?
+    const disponibleParaSolicitud = (r: any): boolean => {
+      const dow = new Date(String(r.fecha) + 'T00:00:00').getDay();
+      const ini = toMin(String(r.hora_inicio).slice(0, 5));
+      const fin = ini + (r.duracion_min || 60);
+      const cubre = slots.some(s => s.dia === dow && ini >= toMin(s.ini) && fin <= toMin(s.fin));
+      if (!cubre) return false;
+      const solapa = (asignadas || []).some((a: any) => {
+        if (!['aceptada', 'completada', 'ofrecida'].includes(a.estado)) return false;
+        if (String(a.fecha) !== String(r.fecha)) return false;
+        const as = toMin(String(a.hora_inicio).slice(0, 5));
+        const ae = as + (a.duracion_min || 60);
+        return ini < ae && as < fin;
+      });
+      return !solapa;
+    };
+
     // 2b) Filtrar las solicitudes abiertas a las que esta masajista puede servir:
-    //     que el servicio encaje con sus especialidades Y la zona con su cobertura.
-    //     Si no tiene especialidades/zonas configuradas, no se filtra por ese criterio.
+    //     servicio↔especialidades, zona↔cobertura Y su disponibilidad real (estricto).
+    //     Sin especialidades/zonas configuradas no se filtra por ese criterio; pero
+    //     SIN disponibilidad configurada = no ve NINGUNA solicitud (decisión estricta).
     const matchesPerfil = (r: any): boolean => {
       const servName = (r.servicios?.nombre || '').toLowerCase();
       const matchEsp = esp.length === 0 || esp.some((e: string) => servName.includes(e));
@@ -242,7 +271,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const matchZona = zonas.length === 0 || zonas.some((z: string) => loc.includes(z));
       return matchEsp && matchZona;
     };
-    const abiertasFiltradas = (abiertas || []).filter(matchesPerfil);
+    const abiertasFiltradas = (abiertas || []).filter(r => matchesPerfil(r) && disponibleParaSolicitud(r));
 
     // Combinar sin duplicados.
     const seen = new Set<string>();
@@ -684,6 +713,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  // Fase 11·B — disponibilidad real (fuente única de verdad en la BD).
+  // Horas de una fecha con al menos una masajista disponible para ese servicio.
+  const getHorasDisponibles = async (fecha: string, servicioId: string): Promise<string[]> => {
+    const { data, error } = await supabase.rpc('horas_disponibles', { p_fecha: fecha, p_servicio: servicioId });
+    if (error) throw error;
+    return (data as string[]) || [];
+  };
+  // Ids de masajistas disponibles (y que dan ese servicio) en fecha/hora/duración.
+  const getMasajistasDisponibles = async (fecha: string, hora: string, dur: number, servicioId: string): Promise<string[]> => {
+    const { data, error } = await supabase.rpc('masajistas_disponibles', { p_fecha: fecha, p_hora: hora, p_dur: dur, p_servicio: servicioId });
+    if (error) throw error;
+    return (data as string[]) || [];
+  };
+
   const saveDisponibilidad = async (
     masajistaId: string,
     slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]
@@ -1038,6 +1081,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateServicio,
     deleteServicio,
     getDisponibilidad,
+    getHorasDisponibles,
+    getMasajistasDisponibles,
     saveDisponibilidad,
     updateTransferencia,
     cerrarCiclo,

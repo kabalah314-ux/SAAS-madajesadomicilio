@@ -7,10 +7,14 @@ import confetti from 'canvas-confetti';
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 export default function NuevaReserva() {
-  const { currentUser, servicios, masajistas, createReserva, configuracion, navigate } = useApp();
+  const { currentUser, servicios, masajistas, createReserva, configuracion, navigate, getHorasDisponibles, getMasajistasDisponibles } = useApp();
   const pagoPct = 100 - configuracion.comision_plataforma_pct;
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
+  // Fase 11·B — disponibilidad real
+  const [horasDisp, setHorasDisp] = useState<string[]>([]);
+  const [loadingHoras, setLoadingHoras] = useState(false);
+  const [masajistasDispIds, setMasajistasDispIds] = useState<string[] | null>(null);
 
   // Estado del formulario
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
@@ -43,6 +47,34 @@ export default function NuevaReserva() {
       setDireccion(clienta.direccion_habitual);
     }
   };
+
+  // Cargar las horas realmente disponibles cuando hay servicio + fecha.
+  useEffect(() => {
+    if (!fecha || !selectedServicio) { setHorasDisp([]); return; }
+    let cancel = false;
+    setLoadingHoras(true);
+    getHorasDisponibles(fecha, selectedServicio.id)
+      .then(hs => {
+        if (cancel) return;
+        setHorasDisp(hs);
+        if (horaInicio && !hs.includes(horaInicio)) setHoraInicio('');
+      })
+      .catch(() => { if (!cancel) setHorasDisp([]); })
+      .finally(() => { if (!cancel) setLoadingHoras(false); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, selectedServicio]);
+
+  // Masajistas disponibles para la fecha/hora/servicio elegidos (para el paso 4).
+  useEffect(() => {
+    if (!fecha || !horaInicio || !selectedServicio) { setMasajistasDispIds(null); return; }
+    let cancel = false;
+    getMasajistasDisponibles(fecha, horaInicio, selectedServicio.duracion_minutos, selectedServicio.id)
+      .then(ids => { if (!cancel) setMasajistasDispIds(ids); })
+      .catch(() => { if (!cancel) setMasajistasDispIds([]); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, horaInicio, selectedServicio]);
 
   const steps = [
     { num: 1, label: 'Servicio', icon: Sparkles },
@@ -121,17 +153,10 @@ export default function NuevaReserva() {
     }
   };
 
-  // Obtener slots disponibles (simplificado - en producción consultaría disponibilidad real)
-  const getSlotsDisponibles = () => {
-    const slots = [];
-    for (let hora = 9; hora <= 21; hora++) {
-      slots.push(`${hora.toString().padStart(2, '0')}:00`);
-      if (hora < 21) slots.push(`${hora.toString().padStart(2, '0')}:30`);
-    }
-    return slots;
-  };
-
-  const masajistasActivas = masajistas.filter(m => m.activo && m.documentacion_ok);
+  // Solo masajistas realmente disponibles para la fecha/hora/servicio elegidos (B).
+  const masajistasActivas = masajistas.filter(m =>
+    m.activo && m.documentacion_ok && (masajistasDispIds === null || masajistasDispIds.includes(m.id))
+  );
   const masajistaPreferida = clienta?.masajista_preferida;
 
   return (
@@ -238,13 +263,19 @@ export default function NuevaReserva() {
                 <select
                   value={horaInicio}
                   onChange={(e) => setHoraInicio(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                  disabled={!fecha || loadingHoras || horasDisp.length === 0}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none disabled:bg-gray-100"
                 >
-                  <option value="">Selecciona una hora...</option>
-                  {getSlotsDisponibles().map(slot => (
+                  <option value="">
+                    {!fecha ? 'Elige primero una fecha' : loadingHoras ? 'Buscando horas...' : horasDisp.length === 0 ? 'Sin disponibilidad' : 'Selecciona una hora...'}
+                  </option>
+                  {horasDisp.map(slot => (
                     <option key={slot} value={slot}>{slot}</option>
                   ))}
                 </select>
+                {fecha && !loadingHoras && horasDisp.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-2">No hay masajistas disponibles ese día. Prueba con otra fecha.</p>
+                )}
               </div>
             </div>
 

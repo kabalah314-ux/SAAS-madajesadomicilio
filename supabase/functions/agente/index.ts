@@ -65,22 +65,15 @@ async function runTool(name: string, args: any, conv: any): Promise<any> {
   }
 
   if (name === "consultar_huecos") {
-    // A1: huecos reales — franja estándar 10-20 cruzada con la ocupación real. Un hueco está
-    // libre si AL MENOS UNA masajista verificada/activa no tiene reserva activa que solape.
-    const horas = ["10:00", "11:00", "12:00", "13:00", "16:00", "17:00", "18:00", "19:00"];
-    const { data: masajistas } = await sb.from("masajistas").select("id").eq("is_verified", true).eq("is_suspended", false);
-    const activas = (masajistas ?? []).map((m: any) => m.id);
-    if (!activas.length) return { fecha: args.fecha, huecos: horas };
-    const { data: ocupadas } = await sb.from("reservas")
-      .select("masajista_id, hora_inicio, duracion_min")
-      .eq("fecha", args.fecha).in("estado", ["aceptada", "completada"]).not("masajista_id", "is", null);
-    const ocup = ocupadas ?? [];
-    const toMin = (hhmm: string) => { const p = String(hhmm).slice(0, 5).split(":"); return (+p[0]) * 60 + (+p[1]); };
-    const libre = horas.filter((h) => {
-      const ini = toMin(h), fin = ini + 60; // asumimos 60 min si no se sabe el servicio aquí
-      return activas.some((mid: string) =>
-        !ocup.some((r: any) => r.masajista_id === mid && ini < (toMin(r.hora_inicio) + (r.duracion_min ?? 60)) && toMin(r.hora_inicio) < fin));
-    });
+    // B2: huecos reales cruzando la DISPONIBILIDAD real de las masajistas (fuente única
+    // de verdad en la BD: función masajistas_disponibles) con la ocupación. Estricto:
+    // sin franja activa que cubra el hueco, NO hay hueco. Asumimos 60 min aquí.
+    const horas = ["09:00", "10:00", "11:00", "12:00", "13:00", "16:00", "17:00", "18:00", "19:00"];
+    const libre: string[] = [];
+    for (const h of horas) {
+      const { data } = await sb.rpc("masajistas_disponibles", { p_fecha: args.fecha, p_hora: h, p_dur: 60, p_servicio: null });
+      if ((data ?? []).length > 0) libre.push(h);
+    }
     return { fecha: args.fecha, huecos: libre };
   }
 
