@@ -166,6 +166,15 @@ export interface Transferencia {
   reservas_incluidas: string[]; // array de reserva_ids
 }
 
+export interface ExcepcionDisponibilidad {
+  id: string;
+  fecha: string; // YYYY-MM-DD
+  tipo: 'bloqueo' | 'extra';
+  hora_inicio: string | null; // null = día completo (bloqueo) / desde el inicio
+  hora_fin: string | null;
+  motivo: string;
+}
+
 export interface Notificacion {
   id: string;
   usuario_id: string;
@@ -212,6 +221,9 @@ export interface AppContextType {
   getDisponibilidad: (masajistaId: string) => Promise<{ dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]>;
   getHorasDisponibles: (fecha: string, servicioId: string) => Promise<string[]>;
   getMasajistasDisponibles: (fecha: string, hora: string, dur: number, servicioId: string) => Promise<string[]>;
+  getExcepciones: (masajistaId: string) => Promise<ExcepcionDisponibilidad[]>;
+  addExcepcion: (masajistaId: string, exc: { fecha: string; tipo: 'bloqueo' | 'extra'; hora_inicio?: string | null; hora_fin?: string | null; motivo?: string }) => Promise<void>;
+  deleteExcepcion: (id: string) => Promise<void>;
   saveDisponibilidad: (masajistaId: string, slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]) => Promise<void>;
   updateTransferencia: (id: string, estado: TransferenciaEstado, referencia?: string) => Promise<void>;
   cerrarCiclo: (fechaInicio: string, fechaFin: string) => Promise<any>;

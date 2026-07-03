@@ -232,38 +232,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .eq('estado', 'pendiente')
       .order('created_at', { ascending: false });
 
-    // Disponibilidad de la masajista (para el filtro estricto B5).
-    const { data: dispRows } = await supabase
-      .from('disponibilidad')
-      .select('dia_semana, hora_inicio, hora_fin, is_active')
-      .eq('masajista_id', masajistaId);
-    const slots = (dispRows || []).filter((d: any) => d.is_active).map((d: any) => ({
-      dia: d.dia_semana,
-      ini: String(d.hora_inicio).slice(0, 5),
-      fin: String(d.hora_fin).slice(0, 5),
-    }));
-    const toMin = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
-    // ¿Tiene franja activa ese día que cubra [hora, hora+dur] y sin solapar sus reservas?
-    const disponibleParaSolicitud = (r: any): boolean => {
-      const dow = new Date(String(r.fecha) + 'T00:00:00').getDay();
-      const ini = toMin(String(r.hora_inicio).slice(0, 5));
-      const fin = ini + (r.duracion_min || 60);
-      const cubre = slots.some(s => s.dia === dow && ini >= toMin(s.ini) && fin <= toMin(s.fin));
-      if (!cubre) return false;
-      const solapa = (asignadas || []).some((a: any) => {
-        if (!['aceptada', 'completada', 'ofrecida'].includes(a.estado)) return false;
-        if (String(a.fecha) !== String(r.fecha)) return false;
-        const as = toMin(String(a.hora_inicio).slice(0, 5));
-        const ae = as + (a.duracion_min || 60);
-        return ini < ae && as < fin;
-      });
-      return !solapa;
-    };
-
-    // 2b) Filtrar las solicitudes abiertas a las que esta masajista puede servir:
-    //     servicio↔especialidades, zona↔cobertura Y su disponibilidad real (estricto).
-    //     Sin especialidades/zonas configuradas no se filtra por ese criterio; pero
-    //     SIN disponibilidad configurada = no ve NINGUNA solicitud (decisión estricta).
+    // 2b) Filtrar las solicitudes abiertas: primero por servicio↔especialidades y
+    //     zona↔cobertura (JS); si no tiene esp/zonas no se filtra por ese criterio.
     const matchesPerfil = (r: any): boolean => {
       const servName = (r.servicios?.nombre || '').toLowerCase();
       const matchEsp = esp.length === 0 || esp.some((e: string) => servName.includes(e));
@@ -271,7 +241,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const matchZona = zonas.length === 0 || zonas.some((z: string) => loc.includes(z));
       return matchEsp && matchZona;
     };
-    const abiertasFiltradas = (abiertas || []).filter(r => matchesPerfil(r) && disponibleParaSolicitud(r));
+    const candidatas = (abiertas || []).filter(matchesPerfil);
+    // Y por su disponibilidad REAL vía la RPC (fuente única de verdad: horario semanal
+    // + excepciones por fecha). Estricto: sin disponibilidad → no ve ninguna solicitud.
+    const dispFlags = await Promise.all(candidatas.map(async (r: any) => {
+      try {
+        const { data } = await supabase.rpc('masajista_disponible', {
+          p_masajista: masajistaId, p_fecha: r.fecha,
+          p_hora: String(r.hora_inicio).slice(0, 5), p_dur: r.duracion_min || 60,
+        });
+        return data === true;
+      } catch {
+        return false;
+      }
+    }));
+    const abiertasFiltradas = candidatas.filter((_r, i) => dispFlags[i]);
 
     // Combinar sin duplicados.
     const seen = new Set<string>();
@@ -727,6 +711,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return (data as string[]) || [];
   };
 
+  // Fase 11·C — excepciones de disponibilidad por fecha (bloqueo / extra).
+  const getExcepciones = async (masajistaId: string) => {
+    const hoy = new Date();
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    const { data, error } = await supabase
+      .from('disponibilidad_excepciones')
+      .select('*')
+      .eq('masajista_id', masajistaId)
+      .gte('fecha', hoyStr)
+      .order('fecha');
+    if (error) throw error;
+    return (data || []).map((x: any) => ({
+      id: x.id,
+      fecha: x.fecha,
+      tipo: x.tipo,
+      hora_inicio: x.hora_inicio ? String(x.hora_inicio).slice(0, 5) : null,
+      hora_fin: x.hora_fin ? String(x.hora_fin).slice(0, 5) : null,
+      motivo: x.motivo || '',
+    }));
+  };
+  const addExcepcion = async (
+    masajistaId: string,
+    exc: { fecha: string; tipo: 'bloqueo' | 'extra'; hora_inicio?: string | null; hora_fin?: string | null; motivo?: string }
+  ) => {
+    const { error } = await supabase.from('disponibilidad_excepciones').insert({
+      masajista_id: masajistaId,
+      fecha: exc.fecha,
+      tipo: exc.tipo,
+      hora_inicio: exc.hora_inicio || null,
+      hora_fin: exc.hora_fin || null,
+      motivo: exc.motivo || null,
+    });
+    if (error) throw new Error([error.message, error.details, error.hint].filter(Boolean).join(' — '));
+  };
+  const deleteExcepcion = async (id: string) => {
+    const { error } = await supabase.from('disponibilidad_excepciones').delete().eq('id', id);
+    if (error) throw error;
+  };
+
   const saveDisponibilidad = async (
     masajistaId: string,
     slots: { dia: number; hora_inicio: string; hora_fin: string; activo: boolean }[]
@@ -1083,6 +1106,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getDisponibilidad,
     getHorasDisponibles,
     getMasajistasDisponibles,
+    getExcepciones,
+    addExcepcion,
+    deleteExcepcion,
     saveDisponibilidad,
     updateTransferencia,
     cerrarCiclo,
