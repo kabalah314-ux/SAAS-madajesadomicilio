@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Calendar, Filter, UserPlus } from 'lucide-react';
+import { Calendar, Filter, UserPlus, Ban, CheckCircle, X } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { Reserva } from '../../types';
 
 type FiltroEstado = 'todas' | 'pendiente_asignacion' | 'confirmada' | 'completada' | 'cancelada';
 
 export default function GestionReservas() {
-  const { reservas, servicios, clientas, masajistas, aceptarSolicitud } = useApp();
+  const { reservas, servicios, clientas, masajistas, aceptarSolicitud, updateReserva, marcarReservaCompletada, currentUser } = useApp();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todas');
   const [showAsignar, setShowAsignar] = useState<Reserva | null>(null);
   const [masajistaSeleccionada, setMasajistaSeleccionada] = useState('');
+  const [showCancelar, setShowCancelar] = useState<Reserva | null>(null);
+  const [motivoCancel, setMotivoCancel] = useState('');
+  const [detalle, setDetalle] = useState<Reserva | null>(null);
 
   const reservasFiltradas = reservas.filter(r => {
     if (filtroEstado === 'todas') return true;
@@ -30,12 +33,80 @@ export default function GestionReservas() {
     return badges[estado] || badges.pendiente_asignacion;
   };
 
-  const handleAsignar = () => {
-    if (showAsignar && masajistaSeleccionada) {
-      aceptarSolicitud(showAsignar.id, masajistaSeleccionada);
+  const handleAsignar = async () => {
+    if (!showAsignar || !masajistaSeleccionada) return;
+    try {
+      if (showAsignar.estado === 'pendiente_asignacion') {
+        // Solicitud abierta → claim atómico (asigna y confirma).
+        await aceptarSolicitud(showAsignar.id, masajistaSeleccionada);
+      } else {
+        // Ya confirmada → reasignación directa (el admin puede por el trigger).
+        await updateReserva(showAsignar.id, { masajista_id: masajistaSeleccionada });
+      }
       setShowAsignar(null);
       setMasajistaSeleccionada('');
+      setDetalle(null);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo asignar la masajista');
     }
+  };
+
+  const handleCompletar = async (reserva: Reserva) => {
+    try {
+      await marcarReservaCompletada(reserva.id);
+      setDetalle(null);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo completar la reserva');
+    }
+  };
+
+  const handleCancelar = async () => {
+    if (!showCancelar || !motivoCancel.trim()) return;
+    try {
+      await updateReserva(showCancelar.id, {
+        estado: showCancelar.masajista_id ? 'cancelada_masajista' : 'cancelada_clienta',
+        motivo_cancelacion: motivoCancel.trim(),
+        cancelado_por: currentUser?.id,
+      });
+      setShowCancelar(null);
+      setMotivoCancel('');
+      setDetalle(null);
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo cancelar la reserva');
+    }
+  };
+
+  // Botones de acción según el estado de la reserva. Se usa en la tabla (escritorio)
+  // y en el drawer de detalle (móvil). Abrir un modal cierra el drawer para no solaparlos.
+  const renderAcciones = (reserva: Reserva) => {
+    if (reserva.estado === 'pendiente_asignacion') {
+      return (
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => { setDetalle(null); setShowAsignar(reserva); }} className="text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1">
+            <UserPlus size={16} />Asignar
+          </button>
+          <button onClick={() => { setDetalle(null); setShowCancelar(reserva); }} className="text-red-600 hover:text-red-700 font-medium flex items-center gap-1">
+            <Ban size={16} />Cancelar
+          </button>
+        </div>
+      );
+    }
+    if (reserva.estado === 'confirmada') {
+      return (
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => handleCompletar(reserva)} className="text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
+            <CheckCircle size={16} />Completar
+          </button>
+          <button onClick={() => { setDetalle(null); setShowAsignar(reserva); }} className="text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1">
+            <UserPlus size={16} />Reasignar
+          </button>
+          <button onClick={() => { setDetalle(null); setShowCancelar(reserva); }} className="text-red-600 hover:text-red-700 font-medium flex items-center gap-1">
+            <Ban size={16} />Cancelar
+          </button>
+        </div>
+      );
+    }
+    return <span className="text-gray-400">—</span>;
   };
 
   const stats = {
@@ -89,8 +160,8 @@ export default function GestionReservas() {
         </div>
       </div>
 
-      {/* Tabla de reservas */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Tabla de reservas (escritorio) */}
+      <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -151,15 +222,7 @@ export default function GestionReservas() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {reserva.estado === 'pendiente_asignacion' && (
-                          <button
-                            onClick={() => setShowAsignar(reserva)}
-                            className="text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
-                          >
-                            <UserPlus size={16} />
-                            Asignar
-                          </button>
-                        )}
+                        {renderAcciones(reserva)}
                       </td>
                     </tr>
                   );
@@ -176,6 +239,131 @@ export default function GestionReservas() {
         )}
       </div>
 
+      {/* Tarjetas (móvil) */}
+      <div className="lg:hidden space-y-3">
+        {reservasFiltradas.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 text-center py-12 text-gray-500">
+            <Calendar size={48} className="mx-auto mb-3 text-gray-300" />
+            <p>No hay reservas que coincidan con el filtro seleccionado</p>
+          </div>
+        ) : (
+          reservasFiltradas
+            .sort((a, b) => new Date(b.creada_en).getTime() - new Date(a.creada_en).getTime())
+            .map(reserva => {
+              const clienta = clientas.find(c => c.id === reserva.clienta_id);
+              const masajista = masajistas.find(m => m.id === reserva.masajista_id);
+              const estado = getEstadoBadge(reserva.estado);
+              return (
+                <button
+                  key={reserva.id}
+                  onClick={() => setDetalle(reserva)}
+                  className="w-full text-left bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{clienta?.nombre} {clienta?.apellidos}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {masajista ? `${masajista.nombre} ${masajista.apellidos}` : 'Sin asignar'}
+                      </p>
+                    </div>
+                    <span className={`inline-flex flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${estado.class}`}>
+                      {estado.label}
+                    </span>
+                  </div>
+                </button>
+              );
+            })
+        )}
+      </div>
+
+      {/* Detalle de reserva (móvil): ficha flotante con info completa + acciones */}
+      {detalle && (() => {
+        const servicio = servicios.find(s => s.id === detalle.servicio_id);
+        const clienta = clientas.find(c => c.id === detalle.clienta_id);
+        const masajista = masajistas.find(m => m.id === detalle.masajista_id);
+        const estado = getEstadoBadge(detalle.estado);
+        const direccionTexto = [detalle.direccion.calle, detalle.direccion.numero].filter(Boolean).join(' ') || '—';
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setDetalle(null)} />
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+              <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <div className="p-5 border-b border-gray-200 flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-mono text-gray-500">{detalle.codigo}</p>
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <span className="text-xl">{servicio?.emoji}</span>{servicio?.nombre}
+                    </h3>
+                  </div>
+                  <button onClick={() => setDetalle(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="p-5 space-y-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Estado</span>
+                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${estado.class}`}>{estado.label}</span>
+                  </div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Clienta</span><span className="text-gray-900 font-medium text-right">{clienta?.nombre} {clienta?.apellidos}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Masajista</span><span className="text-gray-900 font-medium text-right">{masajista ? `${masajista.nombre} ${masajista.apellidos}` : 'Sin asignar'}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Fecha / hora</span><span className="text-gray-900 font-medium text-right">{new Date(detalle.fecha).toLocaleDateString('es-ES')} · {detalle.hora_inicio}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Zona</span><span className="text-gray-900 font-medium text-right">{detalle.direccion.barrio || detalle.direccion.ciudad || '—'}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Dirección</span><span className="text-gray-900 font-medium text-right">{direccionTexto}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Precio</span><span className="text-gray-900 font-medium text-right">{detalle.precio_total}€</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Pago masajista</span><span className="text-gray-900 font-medium text-right">{Math.round(detalle.pago_masajista)}€</span></div>
+                  {detalle.notas_clienta && (
+                    <div><span className="text-gray-500">Notas</span><p className="text-gray-900 mt-1">{detalle.notas_clienta}</p></div>
+                  )}
+                </div>
+                <div className="p-5 border-t border-gray-200">
+                  {renderAcciones(detalle)}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Modal cancelar reserva (motivo obligatorio) */}
+      {showCancelar && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-[60]" onClick={() => { setShowCancelar(null); setMotivoCancel(''); }} />
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-bold text-gray-900">Cancelar reserva {showCancelar.codigo}</h3>
+                <p className="text-sm text-gray-600 mt-1">Indica el motivo de la cancelación. Se guardará en la reserva.</p>
+              </div>
+              <div className="p-6">
+                <textarea
+                  value={motivoCancel}
+                  onChange={(e) => setMotivoCancel(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none"
+                  placeholder="Motivo de la cancelación..."
+                />
+              </div>
+              <div className="p-6 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => { setShowCancelar(null); setMotivoCancel(''); }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleCancelar}
+                  disabled={!motivoCancel.trim()}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar cancelación
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Modal de asignación */}
       {showAsignar && (
         <>
@@ -183,7 +371,7 @@ export default function GestionReservas() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">Asignar Masajista</h3>
+                <h3 className="text-lg font-bold text-gray-900">{showAsignar.estado === 'confirmada' ? 'Reasignar Masajista' : 'Asignar Masajista'}</h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Reserva {showAsignar.codigo} • {servicios.find(s => s.id === showAsignar.servicio_id)?.nombre}
                 </p>
@@ -293,7 +481,7 @@ export default function GestionReservas() {
                   disabled={!masajistaSeleccionada}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirmar Asignación
+                  {showAsignar.estado === 'confirmada' ? 'Confirmar Reasignación' : 'Confirmar Asignación'}
                 </button>
               </div>
             </div>

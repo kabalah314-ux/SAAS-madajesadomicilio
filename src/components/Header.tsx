@@ -7,13 +7,32 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const { currentUser, logout, notificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } = useApp();
+  const { currentUser, logout, notificaciones, navigate, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } = useApp();
   const [showNotif, setShowNotif] = useState(false);
 
   if (!currentUser) return null;
 
   const userNotif = notificaciones.filter(n => n.usuario_id === currentUser.id);
   const unreadCount = userNotif.filter(n => !n.leida).length;
+
+  // A dónde llevar al pulsar una notificación, según el rol y el tipo (nombres de vista en App.tsx).
+  const destinoNotif = (tipo: string): string => {
+    const t = tipo || '';
+    if (currentUser.role === 'admin') {
+      if (t.startsWith('reserva_')) return 'reservas';
+      if (t.startsWith('documento_')) return 'masajistas';
+      return 'dashboard';
+    }
+    if (currentUser.role === 'masajista') {
+      if (t === 'reserva_nueva') return 'solicitudes';
+      if (t === 'reserva_cancelada' || t === 'reserva_aceptada') return 'calendario';
+      if (t.startsWith('documento_')) return 'documentacion';
+      return 'calendario';
+    }
+    // clienta
+    if (t.startsWith('reserva_')) return 'mis-reservas';
+    return 'inicio';
+  };
 
   const getRoleBadge = (role: string) => {
     const badges = {
@@ -100,6 +119,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                             onClick={() => {
                               marcarNotificacionLeida(notif.id);
                               setShowNotif(false);
+                              navigate(destinoNotif(notif.tipo));
                             }}
                             className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 ${
                               !notif.leida ? 'bg-teal-50' : ''

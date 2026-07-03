@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   AppContextType,
   User,
@@ -42,9 +42,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Navegación interna por estado (no hay router de URL).
   const navigate = (view: string) => setCurrentView(view);
 
+  // Último usuario mapeado. Evita resetear la vista inicial (y desmontar el modal
+  // abierto) cuando el profile se recrea sin cambiar de usuario, p.ej. tras un
+  // refresco de token al volver a la app (bug 12.6).
+  const mappedUidRef = useRef<string | null>(null);
+
   // Map Supabase profile to legacy User type
   useEffect(() => {
     if (profile) {
+      const isSameUser = mappedUidRef.current === profile.id;
       const mappedRole = profile.role === 'cliente' ? 'clienta' : profile.role;
       const nameParts = profile.full_name.split(' ');
       const mapped: User = {
@@ -59,10 +65,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activo: profile.is_active,
       };
       setCurrentUser(mapped);
-      // Vista inicial según el rol.
-      setCurrentView(mappedRole === 'admin' ? 'dashboard' : mappedRole === 'masajista' ? 'calendario' : 'inicio');
+      // Vista inicial según el rol — SOLO al cambiar realmente de usuario (login),
+      // no en cada recreación del profile (si no, un refresco de token te saca del modal).
+      if (!isSameUser) {
+        setCurrentView(mappedRole === 'admin' ? 'dashboard' : mappedRole === 'masajista' ? 'calendario' : 'inicio');
+      }
+      mappedUidRef.current = profile.id;
     } else if (!authLoading) {
       setCurrentUser(null);
+      mappedUidRef.current = null;
     }
   }, [profile, authLoading]);
 
@@ -164,11 +175,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function loadAllClientas() {
-    const { data } = await supabase
-      .from('clientes')
-      .select('*, profiles(full_name, email, phone, avatar_url, is_active)');
+    // Cargamos las clientas y, en paralelo, las reservas COMPLETADAS para calcular
+    // el gasto real (suma de precio_total) y el nº de sesiones de cada una. El admin
+    // ve todas las reservas por RLS, así que la suma es completa.
+    const [{ data }, { data: reservasComp }] = await Promise.all([
+      supabase.from('clientes').select('*, profiles(full_name, email, phone, avatar_url, is_active)'),
+      supabase.from('reservas').select('cliente_id, precio_total, estado').eq('estado', 'completada'),
+    ]);
+    const aggByCliente = new Map<string, { gasto: number; sesiones: number }>();
+    (reservasComp || []).forEach((r: any) => {
+      const cur = aggByCliente.get(r.cliente_id) || { gasto: 0, sesiones: 0 };
+      cur.gasto += Number(r.precio_total) || 0;
+      cur.sesiones += 1;
+      aggByCliente.set(r.cliente_id, cur);
+    });
     if (data) {
-      setClientas(data.map(c => mapClienta(c)));
+      setClientas(data.map(c => mapClienta(c, aggByCliente.get(c.id))));
     }
   }
 
@@ -363,7 +385,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
-  function mapClienta(c: any): Clienta {
+  function mapClienta(c: any, agg?: { gasto: number; sesiones: number }): Clienta {
     const p = c.profiles;
     const nameParts = (p?.full_name || '').split(' ');
     return {
@@ -377,8 +399,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       foto: p?.avatar_url || undefined,
       activo: p?.is_active ?? true,
       direccion_habitual: c.direccion ? { calle: c.direccion, numero: '', ciudad: c.ciudad || '', codigo_postal: c.codigo_postal || '', barrio: '' } : undefined,
-      total_sesiones: c.total_reservas || 0,
-      gasto_acumulado: 0,
+      total_sesiones: agg?.sesiones ?? (c.total_reservas || 0),
+      gasto_acumulado: agg?.gasto ?? 0,
       tipo_cliente: c.total_reservas > 10 ? 'vip' : c.total_reservas > 3 ? 'recurrente' : 'nuevo',
       bloqueada: c.is_blocked,
       motivo_bloqueo: c.block_reason || undefined,
@@ -622,7 +644,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_active: data.activo ?? true,
       orden: servicios.length + 1,
     });
-    if (error) throw error;
+    if (error) throw new Error([error.message, error.details, error.hint].filter(Boolean).join(' — '));
     await loadServicios();
   };
 
@@ -782,6 +804,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (data.masajista_id) supaData.masajista_id = data.masajista_id;
     if (data.motivo_rechazo) supaData.rechazo_motivo = data.motivo_rechazo;
+    if (data.motivo_cancelacion !== undefined) supaData.cancelacion_motivo = data.motivo_cancelacion;
+    if (data.cancelado_por !== undefined) supaData.cancelado_por = data.cancelado_por;
 
     if (supaData.estado === 'aceptada') supaData.aceptada_en = new Date().toISOString();
     if (supaData.estado === 'completada') supaData.completada_en = new Date().toISOString();

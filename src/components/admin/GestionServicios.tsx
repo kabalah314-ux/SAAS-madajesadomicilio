@@ -72,8 +72,8 @@ export default function GestionServicios() {
       return;
     }
 
-    if (!formData.nombre || !formData.tipo) {
-      alert('Por favor completa todos los campos obligatorios');
+    if (!formData.nombre.trim()) {
+      alert('El nombre del servicio es obligatorio');
       return;
     }
 
@@ -308,7 +308,7 @@ export default function GestionServicios() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tipo (opcional)</label>
                     <select
                       value={formData.tipo}
                       onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value as TipoServicio }))}
@@ -411,7 +411,7 @@ export default function GestionServicios() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!formData.nombre || !formData.tipo || !!precioError || busy}
+                  disabled={!formData.nombre.trim() || !!precioError || busy}
                   className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg hover:from-teal-600 hover:to-emerald-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Guardando...' : (showModal === 'create' ? 'Crear Servicio' : 'Guardar Cambios')}
