@@ -20,9 +20,13 @@ el estado de tareas, **[`01_ESTADO_Y_PLAN.md`](01_ESTADO_Y_PLAN.md)**.
 - **Foto de perfil (FC1):** en los 3 roles (masajista ya la tenía; clienta en MisDatos, admin en Configuración); se ve en el Header.
 - **Email mejorado:** el cliente recibe "hemos recibido tu solicitud"; plantilla con icono + tarjeta de detalles + CTA (antes texto plano).
 - **Migraciones aplicadas hasta `_23`** (en producción). Edge Functions desplegadas: `agente`, `admin-actions`, `expire-reservas`, `send-email`. Cron `expire-reservas-cada-15min`.
+- **Fase 8 · "importantes restantes" cerrada (2026-07-02):** CORS con allowlist (`supabase/functions/_shared/cors.ts`), contraseña mínima 6→8 (formularios + config de Auth vía Management API), retirado el alta de masajista por contraseña temporal (`GestionMasajistas` ya solo edita; el alta es SOLO por invitación en Accesos), `tsc --noEmit` a 0 errores (nuevo `src/vite-env.d.ts` + limpieza) y CI nuevo (`.github/workflows/ci.yml`). ⚠️ **Ni las Edge Functions ni el frontend se han redesplegado con estos cambios** — producción lleva el código anterior; al redesplegar `admin-actions`/`agente`/`create-checkout`, revisar antes la allowlist de CORS (falta `localhost:5199`, el puerto del preview — está anotado en la tarea 12.3).
 
-### Lo siguiente (por dónde seguir) — **FASE 11, PLANTEADA (sin construir)**
-Diseño cerrado con decisiones del usuario en **`09 · FC3`** y checklist en **`01 · Fase 11`**:
+### Lo siguiente (por dónde seguir) — **⭐ FASE 12 primero, luego FASE 11**
+
+**EMPIEZA POR LA FASE 12** de `01_ESTADO_Y_PLAN.md`: correcciones que el usuario reportó al probar la app (2026-07-02), sobre todo en **móvil**. Resumen: campana de notificaciones rota/sin navegación en los 3 roles (12.1); cambio de estado de reserva fácil para el admin (12.2); **BUG: invitar masajista no crea la cuenta** (12.3); Reservas y Clientas del admin como tarjetas en móvil, fuera el scroll lateral (12.4/12.5); **BUG: los modales pierden lo escrito al cambiar de app en móvil** (12.6); **BUG: crear servicio no funciona** (12.7); agente y picker del admin deben respetar disponibilidad + especialidad (12.8 → remite a Fase 11·B); rediseño completo de Mi Calendario de la masajista (12.9); verificación + redespliegue final (12.10). Cada tarea lleva archivos, pistas y criterio de verificación.
+
+Después, **FASE 11 (planteada, sin construir)** — diseño cerrado con decisiones del usuario en **`09 · FC3`** y checklist en **`01 · Fase 11`**:
 - **Bloque A:** el admin OFRECE la reserva (nuevo estado `ofrecida`) y la masajista acepta/rechaza (hoy el admin asigna directo sin consentimiento). El pool abierto se mantiene en paralelo.
 - **Bloque B:** la **disponibilidad real** (panel de la masajista, hoy no se usa) filtra los huecos del cliente/agente/picker admin. Modo **estricto** (sin disponibilidad = no disponible).
 - **Bloque C:** excepciones por fecha (bloquear un día / disponibilidad extra) además del horario semanal recurrente.
