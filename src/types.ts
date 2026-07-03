@@ -52,6 +52,7 @@ export interface Masajista extends User {
   rating_promedio: number;
   total_sesiones: number;
   valoraciones: Valoracion[];
+  sin_disponibilidad?: boolean; // no tiene ninguna franja horaria activa configurada
 }
 
 export interface Clienta extends User {

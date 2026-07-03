@@ -166,11 +166,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function loadAllMasajistas() {
-    const { data } = await supabase
-      .from('masajistas')
-      .select('*, profiles(full_name, email, phone, avatar_url, is_active), documentos(*)');
+    const [{ data }, { data: dispRows }] = await Promise.all([
+      supabase.from('masajistas').select('*, profiles(full_name, email, phone, avatar_url, is_active), documentos(*)'),
+      supabase.from('disponibilidad').select('masajista_id').eq('is_active', true),
+    ]);
+    const conDisponibilidad = new Set((dispRows || []).map((d: any) => d.masajista_id));
     if (data) {
-      setMasajistas(data.map(m => mapMasajista(m)));
+      setMasajistas(data.map(m => ({ ...mapMasajista(m), sin_disponibilidad: !conDisponibilidad.has(m.id) })));
     }
   }
 

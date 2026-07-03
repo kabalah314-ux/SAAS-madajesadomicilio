@@ -182,6 +182,11 @@ export default function GestionMasajistas() {
                           {docsPendientes} docs
                         </span>
                       )}
+                      {masajista.sin_disponibilidad && (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800" title="No ha configurado su horario; no recibirá reservas">
+                          ⚠️ Sin disponibilidad
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
